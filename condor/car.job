@@ -1,0 +1,21 @@
+Universe = vanilla
+
+RequestCpus = 8
+Request_GPUs = 1
+RequestMemory = 8Gb
++RequestWalltime = 172800
+
+Requirements = (CUDACapability >= 3.5)&&(CUDAGlobalMemoryMb >= 8000.0)&&(machine != "andromeda.esat.kuleuven.be")
+
+Initialdir = /users/visics/gkouros/projects/nerf-repos/multinerf/condor
+Executable = /users/visics/gkouros/projects/nerf-repos/multinerf/condor/train_blender.sh
+Arguments = ref_shiny/car $(Cluster)
+
+NiceUser = false
+
+Log    =  ../logs/ref_shiny/car/exp.$(Cluster).log
+Output =  ../logs/ref_shiny/car/exp.$(Cluster).out
+Error  =  ../logs/ref_shiny/car/exp.$(Cluster).err
+
+Notification = Complete
+Queue 1

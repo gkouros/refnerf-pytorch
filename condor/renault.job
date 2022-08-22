@@ -1,0 +1,21 @@
+Universe = vanilla
+
+RequestCpus = 8
+Request_GPUs = 1
+RequestMemory = 8Gb
++RequestWalltime = 172800
+
+Requirements = (CUDACapability >= 3.5)&&(CUDAGlobalMemoryMb >= 8000.0)&&(machine != "andromeda.esat.kuleuven.be")
+
+Initialdir = /users/visics/gkouros/projects/nerf-repos/multinerf/condor
+Executable = /users/visics/gkouros/projects/nerf-repos/multinerf/condor/train_llff.sh
+Arguments = renault $(Cluster)
+
+NiceUser = false
+
+Log    =  ../logs/renault/exp.$(Cluster).log
+Output =  ../logs/renault/exp.$(Cluster).out
+Error  =  ../logs/renault/exp.$(Cluster).err
+
+Notification = Complete
+Queue 1
