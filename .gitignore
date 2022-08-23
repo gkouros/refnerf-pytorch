@@ -7,3 +7,4 @@ tests/__pycache__/
 .idea/
 __MACOSX/
 logs/
+*.code-workspace
