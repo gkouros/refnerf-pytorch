@@ -52,17 +52,21 @@ def main(unused_argv):
   if config.batch_size % jax.device_count() != 0:
     raise ValueError('Batch size must be divisible by the number of devices.')
 
+  # load training and test sets
   dataset = datasets.load_dataset('train', config.data_dir, config)
   test_dataset = datasets.load_dataset('test', config.data_dir, config)
 
+  # convert cameras from numpy to jax format
   np_to_jax = lambda x: jnp.array(x) if isinstance(x, np.ndarray) else x
   cameras = tuple(np_to_jax(x) for x in dataset.cameras)
 
+  # if rawnerf then add postprocessing step
   if config.rawnerf_mode:
     postprocess_fn = test_dataset.metadata['postprocess_fn']
   else:
     postprocess_fn = lambda z, _=None: z
 
+  # create model, state, rendering evaluation function, training step, and lr scheduler
   rng, key = random.split(rng)
   setup = train_utils.setup_model(config, key, dataset=dataset)
   model, state, render_eval_pfn, train_pstep, lr_fn = setup
@@ -86,6 +90,7 @@ def main(unused_argv):
   init_step = state.step + 1
   state = flax.jax_utils.replicate(state)
 
+  # setup tensorboard for logging
   if jax.host_id() == 0:
     summary_writer = tensorboard.SummaryWriter(config.checkpoint_dir)
     if config.rawnerf_mode:
@@ -106,6 +111,8 @@ def main(unused_argv):
     num_steps = config.early_exit_steps
   else:
     num_steps = config.max_steps
+
+  # start training loop
   for step, batch in zip(range(init_step, num_steps + 1), pdataset):
 
     if reset_stats and (jax.host_id() == 0):
@@ -116,6 +123,7 @@ def main(unused_argv):
     learning_rate = lr_fn(step)
     train_frac = jnp.clip((step - 1) / (config.max_steps - 1), 0, 1)
 
+    # perform training step
     state, stats, rngs = train_pstep(
         rngs,
         state,
