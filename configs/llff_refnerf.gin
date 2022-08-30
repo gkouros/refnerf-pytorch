@@ -16,8 +16,8 @@ Config.predicted_normal_coarse_loss_mult = 3e-5
 Config.interlevel_loss_mult = 0.0
 Config.data_coarse_loss_mult = 0.1
 Config.adam_eps = 1e-8
-Config.batch_size = 1024
-Config.render_chunk_size = 1024
+Config.batch_size = 2048
+Config.render_chunk_size = 2048
 
 Model.num_levels = 2
 Model.single_mlp = True
