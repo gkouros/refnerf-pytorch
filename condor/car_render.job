@@ -5,17 +5,17 @@ Request_GPUs = 1
 RequestMemory = 16Gb
 +RequestWalltime = 172800
 
-Requirements = (CUDACapability >= 7.0)&&(CUDAGlobalMemoryMb >= 15000.0)&&(machine != "andromeda.esat.kuleuven.be")&&(machine != "aristoteles.esat.kuleuven.be")
+Requirements = (CUDACapability >= 7.0)&&(CUDAGlobalMemoryMb >= 11000.0)&&(machine != "andromeda.esat.kuleuven.be")&&(machine != "aristoteles.esat.kuleuven.be")
 
 Initialdir = /users/visics/gkouros/projects/nerf-repos/multinerf/condor
 Executable = /users/visics/gkouros/projects/nerf-repos/multinerf/condor/render_blender.sh
-Arguments = ref_shiny/car $(Cluster)
+Arguments = ref_shiny/car 13555
 
 NiceUser = false
 
-Log    =  ../logs/ref_shiny/car/exp.$(Cluster).log
-Output =  ../logs/ref_shiny/car/exp.$(Cluster).out
-Error  =  ../logs/ref_shiny/car/exp.$(Cluster).err
+Log    =  ../logs/ref_shiny/car/render.$(Cluster).log
+Output =  ../logs/ref_shiny/car/render.$(Cluster).out
+Error  =  ../logs/ref_shiny/car/render.$(Cluster).err
 
 Notification = Complete
 Queue 1
