@@ -157,7 +157,7 @@ def main(unused_argv):
         rays, None, config)
     print(f'Rendered in {(time.time() - eval_start_time):0.3f}s')
 
-    if jax.host_id() != 0:  # Only record via host 0.
+    if jax.process_index() != 0:  # Only record via host 0.
       continue
 
     rendering['rgb'] = postprocess_fn(rendering['rgb'])
@@ -189,7 +189,7 @@ def main(unused_argv):
   time.sleep(1)
   num_files = len(glob.glob(path_fn('acc_*.tiff')))
   time.sleep(10)
-  if jax.host_id() == 0 and num_files == dataset.size:
+  if jax.process_index() == 0 and num_files == dataset.size:
     print(f'All files found, creating videos (job {config.render_job_id}).')
     create_videos(config, base_dir, out_dir, out_name, dataset.size)
 

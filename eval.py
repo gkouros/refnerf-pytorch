@@ -109,7 +109,7 @@ def main(unused_argv):
           config,
       )
 
-      if jax.host_id() != 0:  # Only record via host 0.
+      if jax.process_index() != 0:  # Only record via host 0.
         continue
 
       render_times.append((time.time() - eval_start_time))
@@ -187,7 +187,7 @@ def main(unused_argv):
 
           utils.save_img_f32(rendering['acc'], path_fn(f'acc_{idx:03d}.tiff'))
 
-    if (not config.eval_only_once) and (jax.host_id() == 0):
+    if (not config.eval_only_once) and (jax.process_index() == 0):
       summary_writer.scalar('eval_median_render_time', np.median(render_times),
                             step)
       for name in metrics[0]:
@@ -225,7 +225,7 @@ def main(unused_argv):
                                  step)
 
     if (config.eval_save_output and (not config.render_path) and
-        (jax.host_id() == 0)):
+        (jax.process_index() == 0)):
       with utils.open_file(path_fn(f'render_times_{step}.txt'), 'w') as f:
         f.write(' '.join([str(r) for r in render_times]))
       for name in metrics[0]:

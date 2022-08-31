@@ -45,7 +45,7 @@ def main(unused_argv):
   rng = random.PRNGKey(20200823)
   # Shift the numpy random seed by host_id() to shuffle data loaded by different
   # hosts.
-  np.random.seed(20201473 + jax.host_id())
+  np.random.seed(20201473 + jax.process_index())
 
   config = configs.load_config()
 
@@ -91,7 +91,7 @@ def main(unused_argv):
   state = flax.jax_utils.replicate(state)
 
   # setup tensorboard for logging
-  if jax.host_id() == 0:
+  if jax.process_index() == 0:
     summary_writer = tensorboard.SummaryWriter(config.checkpoint_dir)
     if config.rawnerf_mode:
       for name, data in zip(['train', 'test'], [dataset, test_dataset]):
@@ -101,7 +101,7 @@ def main(unused_argv):
 
   # Prefetch_buffer_size = 3 x batch_size.
   pdataset = flax.jax_utils.prefetch_to_device(dataset, 3)
-  rng = rng + jax.host_id()  # Make random seed separate across hosts.
+  rng = rng + jax.process_index()  # Make random seed separate across hosts.
   rngs = random.split(rng, jax.local_device_count())  # For pmapping RNG keys.
   gc.disable()  # Disable automatic garbage collection for efficiency.
   total_time = 0
@@ -115,7 +115,7 @@ def main(unused_argv):
   # start training loop
   for step, batch in zip(range(init_step, num_steps + 1), pdataset):
 
-    if reset_stats and (jax.host_id() == 0):
+    if reset_stats and (jax.process_index() == 0):
       stats_buffer = []
       train_start_time = time.time()
       reset_stats = False
@@ -138,7 +138,7 @@ def main(unused_argv):
     # Log training summaries. This is put behind a host_id check because in
     # multi-host evaluation, all hosts need to run inference even though we
     # only use host 0 to record results.
-    if jax.host_id() == 0:
+    if jax.process_index() == 0:
       stats = flax.jax_utils.unreplicate(stats)
 
       stats_buffer.append(stats)
@@ -239,7 +239,7 @@ def main(unused_argv):
           test_case.rays, rngs[0], config)
 
       # Log eval summaries on host 0.
-      if jax.host_id() == 0:
+      if jax.process_index() == 0:
         eval_time = time.time() - eval_start_time
         num_rays = jnp.prod(jnp.array(test_case.rays.directions.shape[:-1]))
         rays_per_sec = num_rays / eval_time
@@ -285,7 +285,7 @@ def main(unused_argv):
         for k, v in vis_suite.items():
           summary_writer.image('test_output_' + k, v, step)
 
-  if jax.host_id() == 0 and config.max_steps % config.checkpoint_every != 0:
+  if jax.process_index() == 0 and config.max_steps % config.checkpoint_every != 0:
     state = jax.device_get(flax.jax_utils.unreplicate(state))
     checkpoints.save_checkpoint(
         config.checkpoint_dir, state, int(config.max_steps), keep=100)
