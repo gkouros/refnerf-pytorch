@@ -246,14 +246,15 @@ def main(unused_argv):
         summary_writer.scalar('test_rays_per_sec', rays_per_sec, step)
         print(f'Eval {step}: {eval_time:0.3f}s., {rays_per_sec:0.0f} rays/sec')
 
-        metric_start_time = time.time()
-        metric = metric_harness(
+        if config.compute_metrics:
+          metric_start_time = time.time()
+          metric = metric_harness(
             postprocess_fn(rendering['rgb']), postprocess_fn(test_case.rgb))
-        print(f'Metrics computed in {(time.time() - metric_start_time):0.3f}s')
-        for name, val in metric.items():
-          if not np.isnan(val):
-            print(f'{name} = {val:.4f}')
-            summary_writer.scalar('train_metrics/' + name, val, step)
+          print(f'Metrics computed in {(time.time() - metric_start_time):0.3f}s')
+          for name, val in metric.items():
+            if not np.isnan(val):
+              print(f'{name} = {val:.4f}')
+              summary_writer.scalar('train_metrics/' + name, val, step)
 
         if config.vis_decimate > 1:
           d = config.vis_decimate

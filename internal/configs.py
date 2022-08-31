@@ -59,6 +59,7 @@ class Config:
   # If true, use all input images for training.
   llff_use_all_images_for_training: bool = False
   use_tiffs: bool = False  # If True, use 32-bit TIFFs. Used only by Blender.
+  compute_eval_metrics: bool = False  # If True, compute SSIM and PSNR
   compute_disp_metrics: bool = False  # If True, load and compute disparity MSE.
   compute_normal_metrics: bool = False  # If True, load and compute normal MAE.
   gc_every: int = 10000  # The number of steps between garbage collections.
