@@ -246,7 +246,7 @@ def main(unused_argv):
         summary_writer.scalar('test_rays_per_sec', rays_per_sec, step)
         print(f'Eval {step}: {eval_time:0.3f}s., {rays_per_sec:0.0f} rays/sec')
 
-        if config.compute_metrics:
+        if config.compute_eval_metrics:
           metric_start_time = time.time()
           metric = metric_harness(
             postprocess_fn(rendering['rgb']), postprocess_fn(test_case.rgb))
