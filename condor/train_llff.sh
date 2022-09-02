@@ -13,12 +13,12 @@ export LD_LIBRARY_PATH="/usr/local/cuda-11/lib64:/usr/local/cuda/lib64:$CONDA_PR
 DIR=/users/visics/gkouros/projects/nerf-repos/multinerf/
 cd ${DIR}
 
-python3 train.py \
+TF_FORCE_GPU_ALLOW_GROWTH='true' python3 train.py \
   --gin_configs=configs/llff_refnerf.gin \
   --gin_bindings="Config.data_dir = '${DIR}/data/$1'" \
   --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
   --logtostderr \
-  & \
+  && \
   TF_FORCE_GPU_ALLOW_GROWTH='true' python3 render.py \
     --gin_configs=configs/llff_refnerf.gin \
     --gin_bindings="Config.data_dir = '${DATA_DIR}'" \
