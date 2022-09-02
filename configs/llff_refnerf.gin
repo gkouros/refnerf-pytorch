@@ -1,5 +1,6 @@
 Config.dataset_loader = 'llff'
 Config.batching = 'all_images'
+Config.llff_white_background = True
 Config.near = 0.
 Config.far = 1.
 Config.factor = 4

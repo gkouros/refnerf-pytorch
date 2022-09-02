@@ -587,6 +587,7 @@ class LLFF(Dataset):
       pose_data = load_blender_posedata(self.data_dir)
     image_names, poses, pixtocam, distortion_params, camtype = pose_data
 
+
     # Previous NeRF results were generated with images sorted by filename,
     # use this flag to ensure metrics are reported on the same test set.
     if config.load_alphabetical:
@@ -628,6 +629,19 @@ class LLFF(Dataset):
                      for f in image_names]
       images = [utils.load_img(x) for x in image_paths]
       images = np.stack(images, axis=0) / 255.
+
+      # mask background if flag is set
+      if config.llff_white_background:
+        mask_dir = os.path.join(self.data_dir, 'masks')
+        mask_paths = [os.path.join(mask_dir, colmap_to_image[f].replace('png', 'jpg'))
+                      for f in image_names]
+        image_size = images[0].shape[:2]
+        try:
+            masks = [cv2.resize(utils.load_img(x), image_size[::-1]) for x in mask_paths]
+            alphas = np.expand_dims(np.stack(masks, axis=0), -1) / 255.
+            images = images * alphas + (1. - alphas)  # remove background
+        except FileNotFoundError as err:
+            print('Masks not found [%s]' % err)
 
       # EXIF data is usually only present in the original JPEG images.
       jpeg_paths = [os.path.join(colmap_image_dir, f) for f in image_names]
