@@ -17,16 +17,16 @@ python3 train.py \
   --gin_configs=configs/llff_refnerf.gin \
   --gin_bindings="Config.data_dir = '${DIR}/data/$1'" \
   --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
-  --logtostderr
-
-TF_FORCE_GPU_ALLOW_GROWTH='true' python3 render.py \
-  --gin_configs=configs/llff_refnerf.gin \
-  --gin_bindings="Config.data_dir = '${DATA_DIR}'" \
-  --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
-  --gin_bindings="Config.render_dir = '${DIR}/logs/$1/$2/render/'" \
-  --gin_bindings="Config.render_path = True" \
-  --gin_bindings="Config.render_path_frames = 480" \
-  --gin_bindings="Config.render_video_fps = 60" \
-  --logtostderr
+  --logtostderr \
+  & \
+  TF_FORCE_GPU_ALLOW_GROWTH='true' python3 render.py \
+    --gin_configs=configs/llff_refnerf.gin \
+    --gin_bindings="Config.data_dir = '${DATA_DIR}'" \
+    --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
+    --gin_bindings="Config.render_dir = '${DIR}/logs/$1/$2/render/'" \
+    --gin_bindings="Config.render_path = True" \
+    --gin_bindings="Config.render_path_frames = 480" \
+    --gin_bindings="Config.render_video_fps = 60" \
+    --logtostderr
 
 conda deactivate
