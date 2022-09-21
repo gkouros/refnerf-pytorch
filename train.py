@@ -81,8 +81,10 @@ def main(unused_argv):
                      f'must be at least equal to number of train images '
                      f'{dataset.size}')
 
+  # create object for calculating metrics
   metric_harness = image.MetricHarness()
 
+  # load saved checkpoint
   if not utils.isdir(config.checkpoint_dir):
     utils.makedirs(config.checkpoint_dir)
   state = checkpoints.restore_checkpoint(config.checkpoint_dir, state)
