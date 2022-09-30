@@ -10,7 +10,7 @@ conda activate multinerf
 export PATH="/usr/local/cuda-11/bin:/usr/local/cuda/bin:$PATH"
 export LD_LIBRARY_PATH="/usr/local/cuda-11/lib64:/usr/local/cuda/lib64:$CONDA_PREFIX/lib/:$LD_LIBRARY_PATH"
 
-DIR=/users/visics/gkouros/projects/nerf-repos/multinerf/
+DIR=/users/visics/gkouros/projects/nerf-repos/Ref-NeRF-plusplus/
 cd ${DIR}
 
 XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 train.py \

@@ -10,7 +10,7 @@ export LD_LIBRARY_PATH="/usr/local/cuda-11/lib64:/usr/local/cuda/lib64:$LD_LIBRA
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate multinerf
 
-DIR=/users/visics/gkouros/projects/nerf-repos/multinerf/
+DIR=/users/visics/gkouros/projects/nerf-repos/Ref-NeRF-plusplus/
 cd ${DIR}
 
 TF_FORCE_GPU_ALLOW_GROWTH='true' python -m render \
