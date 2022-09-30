@@ -2,6 +2,7 @@
 
 NAME=$1
 EXP=$2
+CONFIG=$3
 DATA_DIR=/esat/topaz/gkouros/datasets/nerf/$1
 
 source ~/miniconda3/etc/profile.d/conda.sh
@@ -14,13 +15,14 @@ DIR=/users/visics/gkouros/projects/nerf-repos/Ref-NeRF-plusplus/
 cd ${DIR}
 
 XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 train.py \
-  --gin_configs=configs/llff_refnerf.gin \
+  --gin_configs=$CONFIG \
   --gin_bindings="Config.data_dir = '${DIR}/data/$1'" \
   --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
+  --gin_bindings="NerfMLP.deg_view = 6" \
   --logtostderr \
   && \
   python3 render.py \
-    --gin_configs=configs/llff_refnerf.gin \
+    --gin_configs=$CONFIG \
     --gin_bindings="Config.data_dir = '${DATA_DIR}'" \
     --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
     --gin_bindings="Config.render_dir = '${DIR}/logs/$1/$2/render/'" \

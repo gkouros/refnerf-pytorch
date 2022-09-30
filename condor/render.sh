@@ -2,6 +2,7 @@
 
 NAME=$1
 EXP=$2
+CONFIG=$3
 DATA_DIR=/esat/topaz/gkouros/datasets/nerf/$1
 
 export PATH="/usr/local/cuda-11/bin:/usr/local/cuda/bin:$PATH"
@@ -14,7 +15,7 @@ DIR=/users/visics/gkouros/projects/nerf-repos/Ref-NeRF-plusplus/
 cd ${DIR}
 
 TF_FORCE_GPU_ALLOW_GROWTH='true' python -m render \
-  --gin_configs=configs/llff_refnerf.gin \
+  --gin_configs=$CONFIG \
   --gin_bindings="Config.data_dir = '${DATA_DIR}'" \
   --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
   --gin_bindings="Config.render_dir = '${DIR}/logs/$1/$2/render/'" \
