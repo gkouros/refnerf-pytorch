@@ -2,7 +2,7 @@ Universe = vanilla
 
 RequestCpus = 4
 Request_GPUs = 1
-RequestMemory = 12Gb
+RequestMemory = 10Gb
 +RequestWalltime = 259000
 
 Requirements = (CUDACapability >= 7.0)&&(CUDAGlobalMemoryMb >= 80000.0)&&(machine != "andromeda.esat.kuleuven.be")
