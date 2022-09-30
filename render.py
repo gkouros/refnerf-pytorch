@@ -176,6 +176,9 @@ def main(unused_argv):
         path_fn(f'distance_median_{idx_str}.tiff'))
     save_fn(
         utils.save_img_f32, rendering['acc'], path_fn(f'acc_{idx_str}.tiff'))
+    save_fn(
+        utils.save_img_u8, rendering['roughness'], path_fn(f'rho_{idx_str}.png'),
+        mask=rendering['acc'])
 
   if config.render_save_async:
     # Wait until all worker threads finish.

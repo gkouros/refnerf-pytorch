@@ -157,13 +157,17 @@ def load_exif(pth: str) -> Dict[str, Any]:
   return exif
 
 
-def save_img_u8(img, pth):
+def save_img_u8(img, pth, mask=None):
   """Save an image (probably RGB) in [0, 1] to disk as a uint8 PNG."""
   with open_file(pth, 'wb') as f:
-    Image.fromarray(
-        (np.clip(np.nan_to_num(img), 0., 1.) * 255.).astype(np.uint8)).save(
-            f, 'PNG')
-
+    img_np = (np.clip(np.nan_to_num(img), 0., 1.) * 255).astype(np.uint8).squeeze()
+    if mask is not None:
+      mask_np = (np.nan_to_num(mask)).astype(np.float32).squeeze()
+      mask_np = 255 * (mask_np - mask_np.min()) / (mask_np.max() - mask_np.min())
+      img_np = (255 - mask_np) + img_np
+      img_np = np.array((255 * (img_np - img_np.min()) / (img_np.max() - img_np.min())), dtype=np.uint8)
+    
+    Image.fromarray(img_np).save(f, 'PNG')
 
 def save_img_f32(depthmap, pth):
   """Save an image (probably a depthmap) to disk as a float32 TIFF."""
