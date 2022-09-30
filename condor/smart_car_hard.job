@@ -8,7 +8,7 @@ RequestMemory = 10Gb
 Requirements = (CUDACapability >= 7.0)&&(CUDAGlobalMemoryMb >= 80000.0)&&(machine != "andromeda.esat.kuleuven.be")
 
 Initialdir = /users/visics/gkouros/projects/nerf-repos/Ref-NeRF-plusplus/condor
-Executable = /users/visics/gkouros/projects/nerf-repos/Ref-NeRF-plusplus/condor/train_blender.sh
+Executable = /users/visics/gkouros/projects/nerf-repos/Ref-NeRF-plusplus/condor/train.sh
 Arguments = smart_car/hard $(Cluster) configs/blender_refnerf.gin
 
 NiceUser = false
