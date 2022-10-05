@@ -505,7 +505,7 @@ class MLP(nn.Module):
     # Apply bias and activation to raw density
     density = self.density_activation(raw_density + self.density_bias)
 
-    roughness = None
+    roughness = 0
     if self.disable_rgb:
       rgb = jnp.zeros_like(means)
     else:
