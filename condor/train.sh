@@ -18,7 +18,8 @@ XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 tr
   --gin_configs=$CONFIG \
   --gin_bindings="Config.data_dir = '${DIR}/data/$1'" \
   --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
-  --gin_bindings="NerfMLP.deg_view = 6" \
+  --gin_bindings="NerfMLP.deg_view = 5" \
+  --gin_bindings="NerfMLP.enable_pred_roughness = False" \
   --logtostderr \
   && \
   python3 render.py \

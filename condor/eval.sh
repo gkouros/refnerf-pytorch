@@ -14,7 +14,7 @@ conda activate multinerf
 DIR=/users/visics/gkouros/projects/nerf-repos/Ref-NeRF-plusplus/
 cd ${DIR}
 
-TF_FORCE_GPU_ALLOW_GROWTH='true' python -m eval \
+TF_FORCE_GPU_ALLOW_GROWTH='true' python3 eval.py \
   --gin_configs=$CONFIG \
   --gin_bindings="Config.data_dir = '${DATA_DIR}'" \
   --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
