@@ -111,7 +111,8 @@ def generate_ide_fn(deg_view):
     ValueError: if deg_view is larger than 5.
   """
   if deg_view > 5:
-    raise ValueError('Only deg_view of at most 5 is numerically stable.')
+    print('WARNING: Only deg_view of at most 5 is numerically stable.')
+  #   raise ValueError('Only deg_view of at most 5 is numerically stable.')
 
   ml_array = get_ml_array(deg_view)
   l_max = 2**(deg_view - 1)
