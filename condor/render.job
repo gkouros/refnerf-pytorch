@@ -11,7 +11,7 @@ Initialdir = /users/visics/gkouros/projects/nerf-repos/Ref-NeRF-plusplus/condor
 Executable = /users/visics/gkouros/projects/nerf-repos/Ref-NeRF-plusplus/condor/render.sh
 Arguments = ref_shiny/car 13776 configs/blender_refnerf.gin
 
-NiceUser = false
+NiceUser = true
 
 Log    =  ../logs/ref_shiny/car/render.$(Cluster).log
 Output =  ../logs/ref_shiny/car/render.$(Cluster).out
