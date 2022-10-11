@@ -15,12 +15,12 @@ DIR=/users/visics/gkouros/projects/nerf-repos/Ref-NeRF-plusplus/
 cd ${DIR}
 
 ENABLE_PRED_ROUGHNESS=True
-DEG_VIEW=7
+DEG_VIEW=5
 BATCH_SIZE=1024
 RENDER_CHUNK_SIZE=1024
 
 XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 train.py \
-  --gin_configs=$CONFIG \
+  --gin_configs="$CONFIG" \
   --gin_bindings="Config.data_dir = '${DIR}/data/$1'" \
   --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
   --gin_bindings="Config.batch_size = $BATCH_SIZE" \
@@ -30,8 +30,8 @@ XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 tr
   --logtostderr \
   && \
   python3 render.py \
-    --gin_configs=$CONFIG \
-    --gin_bindings="Config.data_dir = '${DATA_DIR}'" \
+    --gin_configs="${DIR}/logs/$1/$2/config.gin" \
+    --gin_bindings="Config.data_dir = '${DIR}/data/$1'" \
     --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
     --gin_bindings="Config.render_dir = '${DIR}/logs/$1/$2/render/'" \
     --gin_bindings="Config.render_path = False" \
@@ -44,8 +44,8 @@ XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 tr
     --logtostderr \
   && \
   python3 eval.py \
-  --gin_configs=$CONFIG \
-  --gin_bindings="Config.data_dir = '${DATA_DIR}'" \
+  --gin_configs="${DIR}/logs/$1/$2/config.gin" \
+  --gin_bindings="Config.data_dir = '${DIR}/data/$1" \
   --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
   --gin_bindings="Config.batch_size = $BATCH_SIZE" \
   --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE"
