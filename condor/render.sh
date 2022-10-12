@@ -15,8 +15,8 @@ DIR=/users/visics/gkouros/projects/nerf-repos/Ref-NeRF-plusplus/
 cd ${DIR}
 
 TF_FORCE_GPU_ALLOW_GROWTH='true' python -m render \
-  --gin_configs=$CONFIG \
-  --gin_bindings="Config.data_dir = '${DATA_DIR}'" \
+  --gin_configs="${DIR}/logs/$1/$2/config.gin" \
+  --gin_bindings="Config.data_dir = '${DIR}/data/$1'" \
   --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
   --gin_bindings="Config.render_dir = '${DIR}/logs/$1/$2/render/'" \
   --gin_bindings="Config.render_path = False" \

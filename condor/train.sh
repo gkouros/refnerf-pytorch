@@ -38,7 +38,7 @@ XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 tr
     --gin_bindings="Config.render_path_frames = 480" \
     --gin_bindings="Config.render_video_fps = 60" \
     --gin_bindings="Config.batch_size = $BATCH_SIZE" \
-    --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE"
+    --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE" \
     --gin_bindings="NerfMLP.deg_view = $DEG_VIEW" \
     --gin_bindings="NerfMLP.enable_pred_roughness = $ENABLE_PRED_ROUGHNESS" \
     --logtostderr \
