@@ -45,6 +45,6 @@ NerfMLP.use_diffuse_color = True
 NerfMLP.use_specular_tint = True
 NerfMLP.use_n_dot_v = True
 NerfMLP.bottleneck_width = 128
-NerfMLP.bottleneck_noise = 0.1
+NerfMLP.bottleneck_noise = 0.0
 NerfMLP.density_bias = 0.5
 NerfMLP.max_deg_point = 16
