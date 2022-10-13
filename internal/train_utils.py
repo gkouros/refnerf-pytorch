@@ -92,14 +92,6 @@ def compute_data_loss(batch, renderings, rays, config):
     elif config.data_loss_type == 'charb':
       # Charbonnier loss.
       data_loss = jnp.sqrt(resid_sq + config.charb_padding**2)
-    elif config.data_loss_type == 'rawnerf':
-      # Clip raw values against 1 to match sensor overexposure behavior.
-      rgb_render_clip = jnp.minimum(1., rendering['rgb'])
-      resid_sq_clip = (rgb_render_clip - batch.rgb[..., :3])**2
-      # Scale by gradient of log tonemapping curve.
-      scaling_grad = 1. / (1e-3 + jax.lax.stop_gradient(rgb_render_clip))
-      # Reweighted L2 loss.
-      data_loss = resid_sq_clip * scaling_grad**2
     else:
       assert False
     data_losses.append((lossmult * data_loss).sum() / denom)
@@ -398,8 +390,7 @@ def setup_model(
         Tuple[TrainState, Dict[Text, Any], jnp.array]], Callable[[int], float]]:
   """Creates NeRF model, optimizer, and pmap-ed train/render functions."""
 
-  dummy_rays = utils.dummy_rays(
-      include_exposure_idx=config.rawnerf_mode, include_exposure_values=True)
+  dummy_rays = utils.dummy_rays()
   model, variables = models.construct_model(rng, dummy_rays, config)
 
   state, lr_fn = create_optimizer(config, variables)

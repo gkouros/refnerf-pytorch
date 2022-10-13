@@ -63,7 +63,6 @@ class Model(nn.Module):
   dilation_bias: float = 0.0025  # How much to dilate intervals absolutely.
   num_glo_features: int = 0  # GLO vector length, disabled if 0.
   num_glo_embeddings: int = 1000  # Upper bound on max number of train images.
-  learned_exposure_scaling: bool = False  # Learned exposure scaling (RawNeRF).
   near_anneal_rate: Optional[float] = None  # How fast to anneal in near bound.
   near_anneal_init: float = 0.95  # Where to initialize near bound (in [0, 1]).
   single_mlp: bool = False  # Use the NerfMLP for all rounds of sampling.
@@ -108,17 +107,6 @@ class Model(nn.Module):
         glo_vec = jnp.zeros(rays.origins.shape[:-1] + (self.num_glo_features,))
     else:
       glo_vec = None
-
-    if self.learned_exposure_scaling:
-      # Setup learned scaling factors for output colors.
-      max_num_exposures = self.num_glo_embeddings
-      # Initialize the learned scaling offsets at 0.
-      init_fn = jax.nn.initializers.zeros
-      exposure_scaling_offsets = nn.Embed(
-          max_num_exposures,
-          features=3,
-          embedding_init=init_fn,
-          name='exposure_scaling_offsets')
 
     # Define the mapping from normalized to metric ray distance.
     _, s_to_t = coord.construct_ray_warps(self.raydist_fn, rays.near, rays.far)
@@ -226,7 +214,6 @@ class Model(nn.Module):
           viewdirs=rays.viewdirs if self.use_viewdirs else None,
           imageplane=rays.imageplane,
           glo_vec=None if is_prop else glo_vec,
-          exposure=rays.exposure_values,
       )
 
       # Get the weights used by volumetric rendering (and our other losses).
@@ -252,19 +239,6 @@ class Model(nn.Module):
             shape=weights.shape[:-1] + (3,),
             minval=self.bg_intensity_range[0],
             maxval=self.bg_intensity_range[1])
-
-      # RawNeRF exposure logic.
-      if rays.exposure_idx is not None:
-        # Scale output colors by the exposure.
-        ray_results['rgb'] *= rays.exposure_values[..., None, :]
-        if self.learned_exposure_scaling:
-          exposure_idx = rays.exposure_idx[..., 0]
-          # Force scaling offset to always be zero when exposure_idx is 0.
-          # This constraint fixes a reference point for the scene's brightness.
-          mask = exposure_idx > 0
-          # Scaling is parameterized as an offset from 1.
-          scaling = 1 + mask[..., None] * exposure_scaling_offsets(exposure_idx)
-          ray_results['rgb'] *= scaling[..., None, :]
 
       # Render each ray.
       rendering = render.volumetric_rendering(
@@ -405,8 +379,7 @@ class MLP(nn.Module):
                gaussians,
                viewdirs=None,
                imageplane=None,
-               glo_vec=None,
-               exposure=None):
+               glo_vec=None):
     """Evaluate the MLP.
 
     Args:
@@ -423,7 +396,6 @@ class MLP(nn.Module):
         for each ray in the batch. Useful for image plane operations such as a
         learned vignette mapping.
       glo_vec: [..., num_glo_features], The GLO vector for each ray.
-      exposure: [..., 1], exposure value (shutter_speed * ISO) for each ray.
 
     Returns:
       rgb: jnp.ndarray(float32), with a shape of [..., num_rgb_channels].

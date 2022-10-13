@@ -27,7 +27,6 @@ import cv2
 from internal import camera_utils
 from internal import configs
 from internal import image as lib_image
-from internal import raw_utils
 from internal import utils
 import jax
 import numpy as np
@@ -224,19 +223,16 @@ class Dataset(threading.Thread, metaclass=abc.ABCMeta):
     data_dir: str, location of the dataset on disk.
     disp_images: np.ndarray, optional array of disparity (inverse depth) data.
     distortion_params: dict, the camera distortion model parameters.
-    exposures: optional per-image exposure value (shutter * ISO / 1000).
     far: float, far plane value for rays.
     focal: float, focal length from camera intrinsics.
     height: int, height of images.
     images: np.ndarray, array of RGB image data.
-    metadata: dict, optional metadata for raw datasets.
     near: float, near plane value for rays.
     normal_images: np.ndarray, optional array of surface normal vector data.
     pixtocams: np.ndarray, one or a list of inverse intrinsic camera matrices.
     pixtocam_ndc: np.ndarray, the inverse intrinsic matrix used for NDC space.
     poses: np.ndarray, optional array of auxiliary camera pose data.
     rays: utils.Rays, ray data for every pixel in the dataset.
-    render_exposures: optional list of exposure values for the render path.
     render_path: bool, indicates if a smooth camera path should be generated.
     size: int, number of images in the dataset.
     split: str, indicates if this is a "train" or "test" dataset.
@@ -278,10 +274,7 @@ class Dataset(threading.Thread, metaclass=abc.ABCMeta):
     self.alphas = None
     self.poses = None
     self.pixtocam_ndc = None
-    self.metadata = None
     self.camtype = camera_utils.ProjectionType.PERSPECTIVE
-    self.exposures = None
-    self.render_exposures = None
 
     # Providing type comments for these attributes, they must be correctly
     # initialized by _load_renderings() (see docstring) in any subclass.
@@ -414,18 +407,6 @@ class Dataset(threading.Thread, metaclass=abc.ABCMeta):
         'far': broadcast_scalar(self.far),
         'cam_idx': broadcast_scalar(cam_idx),
     }
-    # Collect per-camera information needed for each ray.
-    if self.metadata is not None:
-      # Exposure index and relative shutter speed, needed for RawNeRF.
-      for key in ['exposure_idx', 'exposure_values']:
-        idx = 0 if self.render_path else cam_idx
-        ray_kwargs[key] = broadcast_scalar(self.metadata[key][idx])
-    if self.exposures is not None:
-      idx = 0 if self.render_path else cam_idx
-      ray_kwargs['exposure_values'] = broadcast_scalar(self.exposures[idx])
-    if self.render_path and self.render_exposures is not None:
-      ray_kwargs['exposure_values'] = broadcast_scalar(
-          self.render_exposures[cam_idx])
 
     pixels = utils.Pixels(pix_x_int, pix_y_int, **ray_kwargs)
     if self._cast_rays_in_train_step and self.split == utils.DataSplit.TRAIN:
@@ -474,14 +455,7 @@ class Dataset(threading.Thread, metaclass=abc.ABCMeta):
     else:
       cam_idx = np.random.randint(0, self._n_examples, (1,))
 
-    if self._apply_bayer_mask:
-      # Compute the Bayer mosaic mask for each pixel in the batch.
-      lossmult = raw_utils.pixels_to_bayer_mask(pix_x_int, pix_y_int)
-    else:
-      lossmult = None
-
-    return self._make_ray_batch(pix_x_int, pix_y_int, cam_idx,
-                                lossmult=lossmult)
+    return self._make_ray_batch(pix_x_int, pix_y_int, cam_idx, lossmult=None)
 
   def generate_ray_batch(self, cam_idx: int) -> utils.Batch:
     """Generate ray batch for a specified camera in the dataset."""
@@ -567,10 +541,8 @@ class LLFF(Dataset):
     """Load images from disk."""
     # Set up scaling factor.
     image_dir_suffix = ''
-    # Use downsampling factor (unless loading training split for raw dataset,
-    # we train raw at full resolution because of the Bayer mosaic pattern).
-    if config.factor > 0 and not (config.rawnerf_mode and
-                                  self.split == utils.DataSplit.TRAIN):
+    # Use downsampling factor
+    if config.factor > 0:
       image_dir_suffix = f'_{config.factor}'
       factor = config.factor
     else:
@@ -602,56 +574,39 @@ class LLFF(Dataset):
     self.distortion_params = distortion_params
     self.camtype = camtype
 
-    raw_testscene = False
-    if config.rawnerf_mode:
-      # Load raw images and metadata.
-      images, metadata, raw_testscene = raw_utils.load_raw_dataset(
-          self.split,
-          self.data_dir,
-          image_names,
-          config.exposure_percentile,
-          factor)
-      self.metadata = metadata
+    # Load images.
+    colmap_image_dir = os.path.join(self.data_dir, 'images')
+    image_dir = os.path.join(self.data_dir, 'images' + image_dir_suffix)
+    for d in [image_dir, colmap_image_dir]:
+      if not utils.file_exists(d):
+        raise ValueError(f'Image folder {d} does not exist.')
+    # Downsampled images may have different names vs images used for COLMAP,
+    # so we need to map between the two sorted lists of files.
+    colmap_files = sorted(utils.listdir(colmap_image_dir))
+    image_files = sorted(utils.listdir(image_dir))
+    colmap_to_image = dict(zip(colmap_files, image_files))
+    image_paths = [os.path.join(image_dir, colmap_to_image[f])
+                    for f in image_names]
+    images = [utils.load_img(x) for x in image_paths]
+    images = np.stack(images, axis=0) / 255.
 
-    else:
-      # Load images.
-      colmap_image_dir = os.path.join(self.data_dir, 'images')
-      image_dir = os.path.join(self.data_dir, 'images' + image_dir_suffix)
-      for d in [image_dir, colmap_image_dir]:
-        if not utils.file_exists(d):
-          raise ValueError(f'Image folder {d} does not exist.')
-      # Downsampled images may have different names vs images used for COLMAP,
-      # so we need to map between the two sorted lists of files.
-      colmap_files = sorted(utils.listdir(colmap_image_dir))
-      image_files = sorted(utils.listdir(image_dir))
-      colmap_to_image = dict(zip(colmap_files, image_files))
-      image_paths = [os.path.join(image_dir, colmap_to_image[f])
-                     for f in image_names]
-      images = [utils.load_img(x) for x in image_paths]
-      images = np.stack(images, axis=0) / 255.
+    # mask background if flag is set
+    if config.llff_white_background:
+      mask_dir = os.path.join(self.data_dir, 'masks')
+      mask_paths = [os.path.join(mask_dir, colmap_to_image[f].replace('png', 'jpg'))
+                    for f in image_names]
+      image_size = images[0].shape[:2]
+      try:
+          masks = [cv2.resize(utils.load_img(x), image_size[::-1]) for x in mask_paths]
+          alphas = np.expand_dims(np.stack(masks, axis=0), -1) / 255.
+          images = images * alphas + (1. - alphas)  # remove background
+      except FileNotFoundError as err:
+          print('Masks not found [%s]' % err)
 
-      # mask background if flag is set
-      if config.llff_white_background:
-        mask_dir = os.path.join(self.data_dir, 'masks')
-        mask_paths = [os.path.join(mask_dir, colmap_to_image[f].replace('png', 'jpg'))
-                      for f in image_names]
-        image_size = images[0].shape[:2]
-        try:
-            masks = [cv2.resize(utils.load_img(x), image_size[::-1]) for x in mask_paths]
-            alphas = np.expand_dims(np.stack(masks, axis=0), -1) / 255.
-            images = images * alphas + (1. - alphas)  # remove background
-        except FileNotFoundError as err:
-            print('Masks not found [%s]' % err)
-
-      # EXIF data is usually only present in the original JPEG images.
-      jpeg_paths = [os.path.join(colmap_image_dir, f) for f in image_names]
-      exifs = [utils.load_exif(x) for x in jpeg_paths]
-      self.exifs = exifs
-      if 'ExposureTime' in exifs[0] and 'ISOSpeedRatings' in exifs[0]:
-        gather_exif_value = lambda k: np.array([float(x[k]) for x in exifs])
-        shutters = gather_exif_value('ExposureTime')
-        isos = gather_exif_value('ISOSpeedRatings')
-        self.exposures = shutters * isos / 1000.
+    # EXIF data is usually only present in the original JPEG images.
+    jpeg_paths = [os.path.join(colmap_image_dir, f) for f in image_names]
+    exifs = [utils.load_exif(x) for x in jpeg_paths]
+    self.exifs = exifs
 
     # Load bounds if possible (only used in forward facing scenes).
     posefile = os.path.join(self.data_dir, 'poses_bounds.npy')
@@ -685,8 +640,8 @@ class LLFF(Dataset):
       self.colmap_to_world_transform = transform
       if config.render_spline_keyframes is not None:
         rets = camera_utils.create_render_spline_path(config, image_names,
-                                                      poses, self.exposures)
-        self.spline_indices, self.render_poses, self.render_exposures = rets
+                                                      poses)
+        self.spline_indices, self.render_poses, _ = rets
       else:
         # Automatically generated inward-facing elliptical render path.
         self.render_poses = camera_utils.generate_ellipse_path(
@@ -695,20 +650,11 @@ class LLFF(Dataset):
             z_variation=config.z_variation,
             z_phase=config.z_phase)
 
-    if raw_testscene:
-      # For raw testscene, the first image sent to COLMAP has the same pose as
-      # the ground truth test image. The remaining images form the training set.
-      raw_testscene_poses = {
-          utils.DataSplit.TEST: poses[:1],
-          utils.DataSplit.TRAIN: poses[1:],
-      }
-      poses = raw_testscene_poses[self.split]
-
     self.poses = poses
 
     # Select the split.
     all_indices = np.arange(images.shape[0])
-    if config.llff_use_all_images_for_training or raw_testscene:
+    if config.llff_use_all_images_for_training:
       train_indices = all_indices
     else:
       train_indices = all_indices % config.llffhold != 0
@@ -720,11 +666,6 @@ class LLFF(Dataset):
     # All per-image quantities must be re-indexed using the split indices.
     images = images[indices]
     poses = poses[indices]
-    if self.exposures is not None:
-      self.exposures = self.exposures[indices]
-    if config.rawnerf_mode:
-      for key in ['exposure_idx', 'exposure_values']:
-        self.metadata[key] = self.metadata[key][indices]
 
     self.images = images
     self.camtoworlds = self.render_poses if config.render_path else poses

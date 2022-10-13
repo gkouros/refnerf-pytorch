@@ -344,7 +344,6 @@ def create_render_spline_path(
     config: configs.Config,
     image_names: Union[Text, List[Text]],
     poses: np.ndarray,
-    exposures: Optional[np.ndarray],
 ) -> Tuple[np.ndarray, np.ndarray, Optional[np.ndarray]]:
   """Creates spline interpolation render path from subset of dataset poses.
 
@@ -352,12 +351,10 @@ def create_render_spline_path(
     config: configs.Config object.
     image_names: either a directory of images or a text file of image names.
     poses: [N, 3, 4] array of extrinsic camera pose matrices.
-    exposures: optional list of floating point exposure values.
 
   Returns:
     spline_indices: list of indices used to select spline keyframe poses.
     render_poses: array of interpolated extrinsic camera poses for the path.
-    render_exposures: optional list of interpolated exposures for the path.
   """
   if utils.isdir(config.render_spline_keyframes):
     # If directory, use image filenames.
@@ -377,22 +374,7 @@ def create_render_spline_path(
       spline_degree=config.render_spline_degree,
       smoothness=config.render_spline_smoothness,
       rot_weight=.1)
-  if config.render_spline_interpolate_exposure:
-    if exposures is None:
-      raise ValueError('config.render_spline_interpolate_exposure is True but '
-                       'create_render_spline_path() was passed exposures=None.')
-    # Interpolate per-frame exposure value.
-    log_exposure = np.log(exposures[spline_indices])
-    # Use aggressive smoothing for exposure interpolation to avoid flickering.
-    log_exposure_interp = interpolate_1d(
-        log_exposure,
-        config.render_spline_n_interp,
-        spline_degree=5,
-        smoothness=20)
-    render_exposures = np.exp(log_exposure_interp)
-  else:
-    render_exposures = None
-  return spline_indices, render_poses, render_exposures
+  return spline_indices, render_poses
 
 
 def intrinsic_matrix(fx: float,
@@ -647,7 +629,7 @@ def cast_ray_batch(
 
   Args:
     cameras: described above.
-    pixels: integer pixel coordinates and camera indices, plus ray metadata.
+    pixels: integer pixel coordinates and camera indices.
       These fields can be an arbitrary batch shape.
     camtype: camera_utils.ProjectionType, fisheye or perspective camera.
     xnp: either numpy or jax.numpy.
@@ -683,8 +665,6 @@ def cast_ray_batch(
       near=pixels.near,
       far=pixels.far,
       cam_idx=pixels.cam_idx,
-      exposure_idx=pixels.exposure_idx,
-      exposure_values=pixels.exposure_values,
   )
 
 

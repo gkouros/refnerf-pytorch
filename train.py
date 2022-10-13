@@ -59,12 +59,7 @@ def main(unused_argv):
   # convert cameras from numpy to jax format
   np_to_jax = lambda x: jnp.array(x) if isinstance(x, np.ndarray) else x
   cameras = tuple(np_to_jax(x) for x in dataset.cameras)
-
-  # if rawnerf then add postprocessing step
-  if config.rawnerf_mode:
-    postprocess_fn = test_dataset.metadata['postprocess_fn']
-  else:
-    postprocess_fn = lambda z, _=None: z
+  postprocess_fn = lambda z, _=None: z
 
   # create model, state, rendering evaluation function, training step, and lr scheduler
   rng, key = random.split(rng)
@@ -95,11 +90,6 @@ def main(unused_argv):
   # setup tensorboard for logging
   if jax.process_index() == 0:
     summary_writer = tensorboard.SummaryWriter(config.checkpoint_dir)
-    if config.rawnerf_mode:
-      for name, data in zip(['train', 'test'], [dataset, test_dataset]):
-        # Log shutter speed metadata in TensorBoard for debug purposes.
-        for key in ['exposure_idx', 'exposure_values', 'unique_shutters']:
-          summary_writer.text(f'{name}_{key}', str(data.metadata[key]), 0)
 
   # Prefetch_buffer_size = 3 x batch_size.
   pdataset = flax.jax_utils.prefetch_to_device(dataset, 3)
@@ -195,16 +185,6 @@ def main(unused_argv):
                               total_time // TIME_PRECISION)
         summary_writer.scalar('train_avg_psnr_timed_approx', avg_stats['psnr'],
                               approx_total_time // TIME_PRECISION)
-
-        if dataset.metadata is not None and model.learned_exposure_scaling:
-          params = state.params['params']
-          scalings = params['exposure_scaling_offsets']['embedding'][0]
-          num_shutter_speeds = dataset.metadata['unique_shutters'].shape[0]
-          for i_s in range(num_shutter_speeds):
-            for j_s, value in enumerate(scalings[i_s]):
-              summary_name = f'exposure/scaling_{i_s}_{j_s}'
-              summary_writer.scalar(summary_name, value, step)
-
         precision = int(np.ceil(np.log10(config.max_steps))) + 1
         avg_loss = avg_stats['loss']
         avg_psnr = avg_stats['psnr']
@@ -268,19 +248,6 @@ def main(unused_argv):
         vis_start_time = time.time()
         vis_suite = vis.visualize_suite(rendering, test_case.rays)
         print(f'Visualized in {(time.time() - vis_start_time):0.3f}s')
-        if config.rawnerf_mode:
-          # Unprocess raw output.
-          vis_suite['color_raw'] = rendering['rgb']
-          # Autoexposed colors.
-          vis_suite['color_auto'] = postprocess_fn(rendering['rgb'], None)
-          summary_writer.image('test_true_auto',
-                               postprocess_fn(test_case.rgb, None), step)
-          # Exposure sweep colors.
-          exposures = test_dataset.metadata['exposure_levels']
-          for p, x in list(exposures.items()):
-            vis_suite[f'color/{p}'] = postprocess_fn(rendering['rgb'], x)
-            summary_writer.image(f'test_true_color/{p}',
-                                 postprocess_fn(test_case.rgb, x), step)
         summary_writer.image('test_true_color', test_case.rgb, step)
         if config.compute_normal_metrics:
           summary_writer.image('test_true_normals',

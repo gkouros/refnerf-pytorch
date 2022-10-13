@@ -152,20 +152,6 @@ class Config:
   render_spline_n_interp: int = 30  # Num. frames to interpolate per keyframe.
   render_spline_degree: int = 5  # Polynomial degree of B-spline interpolation.
   render_spline_smoothness: float = .03  # B-spline smoothing factor, 0 for
-  # exact interpolation of keyframes.
-  # Interpolate per-frame exposure value from spline keyframes.
-  render_spline_interpolate_exposure: bool = False
-
-  # Flags for raw datasets.
-  rawnerf_mode: bool = False  # Load raw images and train in raw color space.
-  exposure_percentile: float = 97.  # Image percentile to expose as white.
-  num_border_pixels_to_mask: int = 0  # During training, discard N-pixel border
-  # around each input image.
-  apply_bayer_mask: bool = False  # During training, apply Bayer mosaic mask.
-  autoexpose_renders: bool = False  # During rendering, autoexpose each image.
-  # For raw test scenes, use affine raw-space color correction.
-  eval_raw_affine_cc: bool = False
-
 
 def define_common_flags():
   # Define the flags used by both train.py and eval.py

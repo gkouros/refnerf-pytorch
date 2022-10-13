@@ -103,11 +103,7 @@ def main(unused_argv):
 
   key = random.PRNGKey(20200823)
   _, state, render_eval_pfn, _, _ = train_utils.setup_model(config, key)
-
-  if config.rawnerf_mode:
-    postprocess_fn = dataset.metadata['postprocess_fn']
-  else:
-    postprocess_fn = lambda z: z
+  postprocess_fn = lambda z: z
 
   state = checkpoints.restore_checkpoint(config.checkpoint_dir, state)
   step = int(state.step)

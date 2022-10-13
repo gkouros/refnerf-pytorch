@@ -37,8 +37,6 @@ class Pixels:
   near: _Array
   far: _Array
   cam_idx: _Array
-  exposure_idx: Optional[_Array] = None
-  exposure_values: Optional[_Array] = None
 
 
 @flax.struct.dataclass
@@ -53,19 +51,11 @@ class Rays:
   near: _Array
   far: _Array
   cam_idx: _Array
-  exposure_idx: Optional[_Array] = None
-  exposure_values: Optional[_Array] = None
 
 
 # Dummy Rays object that can be used to initialize NeRF model.
-def dummy_rays(include_exposure_idx: bool = False,
-               include_exposure_values: bool = False) -> Rays:
+def dummy_rays() -> Rays:
   data_fn = lambda n: jnp.zeros((1, n))
-  exposure_kwargs = {}
-  if include_exposure_idx:
-    exposure_kwargs['exposure_idx'] = data_fn(1).astype(jnp.int32)
-  if include_exposure_values:
-    exposure_kwargs['exposure_values'] = data_fn(1)
   return Rays(
       origins=data_fn(3),
       directions=data_fn(3),
@@ -75,8 +65,7 @@ def dummy_rays(include_exposure_idx: bool = False,
       lossmult=data_fn(1),
       near=data_fn(1),
       far=data_fn(1),
-      cam_idx=data_fn(1).astype(jnp.int32),
-      **exposure_kwargs)
+      cam_idx=data_fn(1).astype(jnp.int32))
 
 
 @flax.struct.dataclass
