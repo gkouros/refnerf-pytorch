@@ -14,7 +14,7 @@ export LD_LIBRARY_PATH="/usr/local/cuda-11/lib64:/usr/local/cuda/lib64:$CONDA_PR
 DIR=/users/visics/gkouros/projects/nerf-repos/Ref-NeRF-plusplus/
 cd ${DIR}
 
-ENABLE_PRED_ROUGHNESS=False
+ENABLE_PRED_ROUGHNESS=True
 DEG_VIEW=5
 BATCH_SIZE=1024
 RENDER_CHUNK_SIZE=1024
