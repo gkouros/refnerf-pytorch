@@ -258,8 +258,6 @@ class Dataset(threading.Thread, metaclass=abc.ABCMeta):
     self._load_disps = config.compute_disp_metrics
     self._load_normals = config.compute_normal_metrics
     self._test_camera_idx = 0
-    self._num_border_pixels_to_mask = config.num_border_pixels_to_mask
-    self._apply_bayer_mask = config.apply_bayer_mask
     self._cast_rays_in_train_step = config.cast_rays_in_train_step
     self._render_spherical = False
 
@@ -435,8 +433,8 @@ class Dataset(threading.Thread, metaclass=abc.ABCMeta):
     # the same width/height for sampling all pixels coordinates in the batch.
     # Batch/patch sampling parameters.
     num_patches = self._batch_size // self._patch_size ** 2
-    lower_border = self._num_border_pixels_to_mask
-    upper_border = self._num_border_pixels_to_mask + self._patch_size - 1
+    lower_border = 0
+    upper_border = self._patch_size - 1
     # Random pixel patch x-coordinates.
     pix_x_int = np.random.randint(lower_border, self.width - upper_border,
                                   (num_patches, 1, 1))
