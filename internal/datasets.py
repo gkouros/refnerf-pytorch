@@ -601,11 +601,6 @@ class LLFF(Dataset):
       except FileNotFoundError as err:
           print('Masks not found [%s]' % err)
 
-    # EXIF data is usually only present in the original JPEG images.
-    jpeg_paths = [os.path.join(colmap_image_dir, f) for f in image_names]
-    exifs = [utils.load_exif(x) for x in jpeg_paths]
-    self.exifs = exifs
-
     # Load bounds if possible (only used in forward facing scenes).
     posefile = os.path.join(self.data_dir, 'poses_bounds.npy')
     if utils.file_exists(posefile):

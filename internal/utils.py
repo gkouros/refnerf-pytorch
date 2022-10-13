@@ -22,7 +22,6 @@ import flax
 import jax
 import jax.numpy as jnp
 import numpy as np
-from PIL import ExifTags
 from PIL import Image
 
 _Array = Union[np.ndarray, jnp.ndarray]
@@ -130,20 +129,6 @@ def load_img(pth: str) -> np.ndarray:
   with open_file(pth, 'rb') as f:
     image = np.array(Image.open(f), dtype=np.float32)
   return image
-
-
-def load_exif(pth: str) -> Dict[str, Any]:
-  """Load EXIF data for an image."""
-  with open_file(pth, 'rb') as f:
-    image_pil = Image.open(f)
-    exif_pil = image_pil._getexif()  # pylint: disable=protected-access
-    if exif_pil is not None:
-      exif = {
-          ExifTags.TAGS[k]: v for k, v in exif_pil.items() if k in ExifTags.TAGS
-      }
-    else:
-      exif = {}
-  return exif
 
 
 def save_img_u8(img, pth, mask=None):
