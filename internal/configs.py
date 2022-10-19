@@ -18,28 +18,8 @@ import dataclasses
 from typing import Any, Callable, Optional, Tuple
 
 from absl import flags
-from flax.core import FrozenDict
 import gin
 from internal import utils
-import jax
-import jax.numpy as jnp
-
-gin.add_config_file_search_path('experimental/users/barron/mipnerf360/')
-
-configurables = {
-    'jnp': [jnp.reciprocal, jnp.log, jnp.log1p, jnp.exp, jnp.sqrt, jnp.square],
-    'jax.nn': [jax.nn.relu, jax.nn.softplus, jax.nn.silu],
-    'jax.nn.initializers.he_normal': [jax.nn.initializers.he_normal()],
-    'jax.nn.initializers.he_uniform': [jax.nn.initializers.he_uniform()],
-    'jax.nn.initializers.glorot_normal': [jax.nn.initializers.glorot_normal()],
-    'jax.nn.initializers.glorot_uniform': [
-        jax.nn.initializers.glorot_uniform()
-    ],
-}
-
-for module, configurables in configurables.items():
-  for configurable in configurables:
-    gin.config.external_configurable(configurable, module=module)
 
 
 @gin.configurable()
@@ -98,7 +78,8 @@ class Config:
   predicted_normal_loss_mult: float = 0.0  # Mult. on the predicted normal loss.
   # Mult. on the coarser predicted normal loss.
   predicted_normal_coarse_loss_mult: float = 0.0
-  weight_decay_mults: FrozenDict[str, Any] = FrozenDict({})  # Weight decays.
+  # weight_decay_mults: FrozenDict[str, Any] = FrozenDict({})  # Weight decays.
+  weight_decay_mults: dict[str, Any] = dict({})  # Weight decays.  #TODO: Check
   # An example that regularizes the NeRF and the first layer of the prop MLP:
   #   weight_decay_mults = {
   #       'NerfMLP_0': 0.00001,
@@ -123,7 +104,7 @@ class Config:
   eval_save_output: bool = True  # If True save predicted images to disk.
   eval_save_ray_data: bool = False  # If True save individual ray traces.
   eval_render_interval: int = 1  # The interval between images saved to disk.
-  eval_dataset_limit: int = jnp.iinfo(jnp.int32).max  # Num test images to eval.
+  eval_dataset_limit: int = np.iinfo(np.int32).max  # Num test images to eval.
   eval_quantize_metrics: bool = True  # If True, run metrics on 8-bit images.
   eval_crop_borders: int = 0  # Ignore c border pixels in eval (x[c:-c, c:-c]).
 
@@ -134,7 +115,7 @@ class Config:
   z_variation: float = 0.  # How much height variation in render path.
   z_phase: float = 0.  # Phase offset for height variation in render path.
   render_dist_percentile: float = 0.5  # How much to trim from near/far planes.
-  render_dist_curve_fn: Callable[..., Any] = jnp.log  # How depth is curved.
+  render_dist_curve_fn: Callable[..., Any] = np.log  # How depth is curved.
   render_path_file: Optional[str] = None  # Numpy render pose file to load.
   render_job_id: int = 0  # Render job id.
   render_num_jobs: int = 1  # Total number of render jobs.
@@ -166,7 +147,7 @@ def load_config(save_config=True):
   gin.parse_config_files_and_bindings(
       flags.FLAGS.gin_configs, flags.FLAGS.gin_bindings, skip_unknown=True)
   config = Config()
-  if save_config and jax.process_index() == 0:
+  if save_config == 0:
     utils.makedirs(config.checkpoint_dir)
     with utils.open_file(config.checkpoint_dir + '/config.gin', 'w') as f:
       f.write(gin.config_str())
