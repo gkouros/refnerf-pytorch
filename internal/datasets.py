@@ -28,7 +28,6 @@ from internal import camera_utils
 from internal import configs
 from internal import image as lib_image
 from internal import utils
-import jax
 import numpy as np
 from PIL import Image
 
@@ -249,7 +248,7 @@ class Dataset(threading.Thread, metaclass=abc.ABCMeta):
     self._queue = queue.Queue(3)  # Set prefetch buffer to 3 batches.
     self.daemon = True  # Sets parent Thread to be a daemon.
     self._patch_size = np.maximum(config.patch_size, 1)
-    self._batch_size = config.batch_size // jax.process_count()
+    self._batch_size = config.batch_size
     if self._patch_size**2 > self._batch_size:
       raise ValueError(f'Patch size {self._patch_size}^2 too large for ' +
                        f'per-process batch size {self._batch_size}')
@@ -345,7 +344,7 @@ class Dataset(threading.Thread, metaclass=abc.ABCMeta):
     if self.split == utils.DataSplit.TRAIN:
       return utils.shard(x)
     else:
-      return jax.device_put(x)
+      return x
 
   def run(self):
     while True:
