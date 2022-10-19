@@ -43,8 +43,7 @@ def main(unused_argv):
     test_dataset = datasets.load_dataset('test', config.data_dir, config)
     
     # create model, state, rendering evaluation function, training step, and lr scheduler
-    rng, key = random.split(rng)
-    setup = train_utils.setup_model(config, key, dataset=dataset)
+    setup = train_utils.setup_model(config, dataset=dataset)
     model, state, render_eval_pfn, train_pstep, lr_fn = setup
 
     variables = state.params
@@ -92,8 +91,7 @@ def main(unused_argv):
         train_frac = jnp.clip((step - 1) / (config.max_steps - 1), 0, 1)
 
         # perform training step
-        state, stats, rng = train_pstep(
-            rng,  #TODO: used to be rngs list so it might break
+        state, stats = train_pstep(
             state,
             batch,
             dataset.cameras,
@@ -174,7 +172,6 @@ def main(unused_argv):
             reset_stats = True
 
         if step == 1 or step % config.checkpoint_every == 0:
-            # checkpoints.save_checkpoint(config.checkpoint_dir, state, int(step), keep=100)  # TODO:
             torch.save({'state': state, 'step': step}, config.checkpoint_dir)
 
 
@@ -188,7 +185,7 @@ def main(unused_argv):
             test_case = next(test_dataset)
             rendering = models.render_image(
                 functools.partial(render_eval_pfn, eval_variables, train_frac),
-                test_case.rays, rngs[0], config)
+                test_case.rays, config)
 
             # Log eval summaries
             eval_time = time.time() - eval_start_time
@@ -218,9 +215,7 @@ def main(unused_argv):
                 summary_writer.image('test_output_' + k, v, step)
 
     if config.max_steps % config.checkpoint_every != 0:
-        checkpoints.save_checkpoint(
-            # config.checkpoint_dir, state, int(config.max_steps), keep=100)  # TODO:
-            torch.save({'state': state, 'step': int(config.max_steps)}, config.checkpoint_dir)
+        torch.save({'state': state, 'step': int(config.max_steps)}, config.checkpoint_dir)
 
 
 if __name__ == '__main__':
