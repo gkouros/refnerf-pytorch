@@ -18,16 +18,16 @@ import enum
 import os
 from typing import Any, Dict, Optional, Union
 
-import flax
-import jax
-import jax.numpy as jnp
 import numpy as np
 from PIL import Image
+import torch
+from dataclasses import dataclass
 
-_Array = Union[np.ndarray, jnp.ndarray]
+
+_Array = Union[np.ndarray, torch.ndarray]
 
 
-@flax.struct.dataclass
+@dataclass
 class Pixels:
   """All tensors must have the same num_dims and first n-1 dims must match."""
   pix_x_int: _Array
@@ -37,8 +37,7 @@ class Pixels:
   far: _Array
   cam_idx: _Array
 
-
-@flax.struct.dataclass
+@dataclass
 class Rays:
   """All tensors must have the same num_dims and first n-1 dims must match."""
   origins: _Array
@@ -54,7 +53,7 @@ class Rays:
 
 # Dummy Rays object that can be used to initialize NeRF model.
 def dummy_rays() -> Rays:
-  data_fn = lambda n: jnp.zeros((1, n))
+  data_fn = lambda n: torch.zeros((1, n))
   return Rays(
       origins=data_fn(3),
       directions=data_fn(3),
@@ -64,10 +63,10 @@ def dummy_rays() -> Rays:
       lossmult=data_fn(1),
       near=data_fn(1),
       far=data_fn(1),
-      cam_idx=data_fn(1).astype(jnp.int32))
+      cam_idx=data_fn(1).astype(torch.int32))
 
 
-@flax.struct.dataclass
+@dataclass
 class Batch:
   """Data batch for NeRF training or testing."""
   rays: Union[Pixels, Rays]
@@ -108,12 +107,6 @@ def isdir(pth):
 def makedirs(pth):
   if not file_exists(pth):
     os.makedirs(pth)
-
-
-def shard(xs):
-  """Split data into shards for multiple devices along the first dimension."""
-  return jax.tree_util.tree_map(
-      lambda x: x.reshape((jax.local_device_count(), -1) + x.shape[1:]), xs)
 
 
 def unshard(x, padding=0):
