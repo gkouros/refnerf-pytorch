@@ -34,12 +34,12 @@ def reflect(viewdirs, normals):
       [..., 3] array of reflection directions.
     """
     return 2.0 * torch.sum(
-        normals * viewdirs, axis=-1, keepdims=True) * normals - viewdirs
+        normals * viewdirs, dim=-1, keepdims=True) * normals - viewdirs
 
 
 def l2_normalize(x, eps=torch.finfo(torch.float32).eps):
     """Normalize x to unit length along last axis."""
-    return x / torch.sqrt(torch.maximum(torch.sum(x**2, axis=-1, keepdims=True), eps))
+    return x / torch.sqrt(torch.max(torch.sum(x**2, dim=-1, keepdims=True), eps))
 
 
 def compute_weighted_mae(weights, normals, normals_gt):
@@ -141,11 +141,11 @@ def generate_ide_fn(deg_view):
         z = xyz[..., 2:3]
 
         # Compute z Vandermonde matrix.
-        vmz = torch.concatenate([z**i for i in range(mat.shape[0])], axis=-1)
+        vmz = torch.cat([z**i for i in range(mat.shape[0])], dim=-1)
 
         # Compute x+iy Vandermonde matrix.
-        vmxy = torch.concatenate(
-            [(x + 1j * y)**m for m in ml_array[0, :]], axis=-1)
+        vmxy = torch.cat(
+            [(x + 1j * y)**m for m in ml_array[0, :]], dim=-1)
 
         # Get spherical harmonics.
         sph_harms = vmxy * math.matmul(vmz, mat)
@@ -156,7 +156,7 @@ def generate_ide_fn(deg_view):
         ide = sph_harms * math.exp(-sigma * kappa_inv)
 
         # Split into real and imaginary parts and return
-        return torch.concatenate([torch.real(ide), torch.imag(ide)], axis=-1)
+        return torch.cat([torch.real(ide), torch.imag(ide)], dim=-1)
 
     return integrated_dir_enc_fn
 

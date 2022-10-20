@@ -90,7 +90,7 @@ def visualize_cmap(value,
   else:
     # Otherwise, just scale to [0, 1].
     value = torch.nan_to_num(
-        torch.clip((value - torch.minimum(lo, hi)) / torch.abs(hi - lo), 0, 1))
+        torch.clip((value - torch.min(lo, hi)) / torch.abs(hi - lo), 0, 1))
 
   if colormap:
     colorized = colormap(value)[:, :, :3]
@@ -139,7 +139,7 @@ def visualize_rays(dist,
 
   if renormalize:
     # Scale the alphas so that the largest value is 1, for visualization.
-    vis_alpha /= torch.maximum(torch.finfo(torch.float32).eps, torch.max(vis_alpha))
+    vis_alpha /= torch.max(torch.finfo(torch.float32).eps, torch.max(vis_alpha))
 
   if resolution > vis_rgb.shape[0]:
     rep = resolution // (vis_rgb.shape[0] * vis_rgb.shape[1] + 1)
@@ -151,11 +151,11 @@ def visualize_rays(dist,
     # Add a strip of background pixels after each set of levels of rays.
     vis_rgb = vis_rgb.reshape((-1, stride) + vis_rgb.shape[1:])
     vis_alpha = vis_alpha.reshape((-1, stride) + vis_alpha.shape[1:])
-    vis_rgb = torch.concatenate([vis_rgb, torch.zeros_like(vis_rgb[:, :1])],
-                              axis=1).reshape((-1,) + vis_rgb.shape[2:])
-    vis_alpha = torch.concatenate(
+    vis_rgb = torch.cat([vis_rgb, torch.zeros_like(vis_rgb[:, :1])],
+                              dim=1).reshape((-1,) + vis_rgb.shape[2:])
+    vis_alpha = torch.cat(
         [vis_alpha, torch.zeros_like(vis_alpha[:, :1])],
-        axis=1).reshape((-1,) + vis_alpha.shape[2:])
+        dim=1).reshape((-1,) + vis_alpha.shape[2:])
 
   # Matte the RGB image over the background.
   vis = vis_rgb * vis_alpha[..., None] + (bg_color * (1 - vis_alpha))[..., None]

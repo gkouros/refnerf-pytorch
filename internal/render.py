@@ -21,7 +21,7 @@ def lift_gaussian(d, t_mean, t_var, r_var, diag):
   """Lift a Gaussian defined along a ray to 3D coordinates."""
   mean = d[..., None, :] * t_mean[..., None]
 
-  d_mag_sq = torch.maximum(1e-10, torch.sum(d**2, axis=-1, keepdims=True))
+  d_mag_sq = torch.maximum(1e-10, torch.sum(d**2, dim=-1, keepdims=True))
 
   if diag:
     d_outer_diag = d**2
@@ -129,23 +129,19 @@ def cast_rays(tdist, origins, directions, radii, ray_shape, diag=True):
 def compute_alpha_weights(density, tdist, dirs, opaque_background=False):
   """Helper function for computing alpha compositing weights."""
   t_delta = tdist[..., 1:] - tdist[..., :-1]
-  delta = t_delta * torch.linalg.norm(dirs[..., None, :], axis=-1)
+  delta = t_delta * torch.linalg.norm(dirs[..., None, :], dim=-1)
   density_delta = density * delta
 
   if opaque_background:
     # Equivalent to making the final t-interval infinitely wide.
-    density_delta = torch.concatenate([
+    density_delta = torch.cat([
         density_delta[..., :-1],
-        torch.full_like(density_delta[..., -1:], torch.inf)
-    ],
-                                    axis=-1)
+        torch.full_like(density_delta[..., -1:], torch.inf)], dim=-1)
 
   alpha = 1 - torch.exp(-density_delta)
-  trans = torch.exp(-torch.concatenate([
+  trans = torch.exp(-torch.cat([
       torch.zeros_like(density_delta[..., :1]),
-      torch.cumsum(density_delta[..., :-1], axis=-1)
-  ],
-                                   axis=-1))
+      torch.cumsum(density_delta[..., :-1], dim=-1)], dim=-1))
   weights = alpha * trans
   return weights, alpha, trans
 
@@ -175,9 +171,9 @@ def volumetric_rendering(rgbs,
   eps = torch.finfo(torch.float32).eps
   rendering = {}
 
-  acc = weights.sum(axis=-1)
+  acc = weights.sum(dim=-1)
   bg_w = torch.maximum(0, 1 - acc[..., None])  # The weight of the background.
-  rgb = (weights[..., None] * rgbs).sum(axis=-2) + bg_w * bg_rgbs
+  rgb = (weights[..., None] * rgbs).sum(dim=-2) + bg_w * bg_rgbs
   rendering['rgb'] = rgb
 
   if compute_extras:
@@ -186,9 +182,9 @@ def volumetric_rendering(rgbs,
     if extras is not None:
       for k, v in extras.items():
         if v is not None:
-          rendering[k] = (weights[..., None] * v).sum(axis=-2)
+          rendering[k] = (weights[..., None] * v).sum(dim=-2)
 
-    expectation = lambda x: (weights * x).sum(axis=-1) / torch.maximum(eps, acc)
+    expectation = lambda x: (weights * x).sum(dim=-1) / torch.max(eps, acc)
     t_mids = 0.5 * (tdist[..., :-1] + tdist[..., 1:])
     # For numerical stability this expectation is computing using log-distance.
     rendering['distance_mean'] = (
@@ -199,8 +195,8 @@ def volumetric_rendering(rgbs,
     # Add an extra fencepost with the far distance at the end of each ray, with
     # whatever weight is needed to make the new weight vector sum to exactly 1
     # (`weights` is only guaranteed to sum to <= 1, not == 1).
-    t_aug = torch.concatenate([tdist, t_far], axis=-1)
-    weights_aug = torch.concatenate([weights, bg_w], axis=-1)
+    t_aug = torch.cat([tdist, t_far], dim=-1)
+    weights_aug = torch.cat([weights, bg_w], dim=-1)
 
     ps = [5, 50, 95]
     distance_percentiles = stepfun.weighted_percentile(t_aug, weights_aug, ps)

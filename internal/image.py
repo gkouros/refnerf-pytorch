@@ -50,7 +50,7 @@ def linear_to_srgb(linear: _Array,
   if eps is None:
     eps = xnp.finfo(xnp.float32).eps
   srgb0 = 323 / 25 * linear
-  srgb1 = (211 * xnp.maximum(eps, linear)**(5 / 12) - 11) / 200
+  srgb1 = (211 * xnp.max(eps, linear)**(5 / 12) - 11) / 200
   return xnp.where(linear <= 0.0031308, srgb0, srgb1)
 
 
@@ -61,7 +61,7 @@ def srgb_to_linear(srgb: _Array,
   if eps is None:
     eps = xnp.finfo(xnp.float32).eps
   linear0 = 25 / 323 * srgb
-  linear1 = xnp.maximum(eps, ((200 * srgb + 11) / (211)))**(12 / 5)
+  linear1 = xnp.max(eps, ((200 * srgb + 11) / (211)))**(12 / 5)
   return xnp.where(srgb <= 0.04045, linear0, linear1)
 
 
@@ -98,7 +98,7 @@ def color_correct(img, ref, num_iters=5, eps=0.5 / 255):
       a_mat.append(img_mat[:, c:(c + 1)] * img_mat[:, c:])  # Quadratic term.
     a_mat.append(img_mat)  # Linear term.
     a_mat.append(torch.ones_like(img_mat[:, :1]))  # Bias term.
-    a_mat = torch.concatenate(a_mat, axis=-1)
+    a_mat = torch.cat(a_mat, dim=-1)
     warp = []
     for c in range(num_channels):
       # Construct the right hand side of a linear system containing each color
@@ -114,7 +114,7 @@ def color_correct(img, ref, num_iters=5, eps=0.5 / 255):
       w = np.linalg.lstsq(ma_mat, mb, rcond=-1)[0]
       assert torch.all(torch.isfinite(w))
       warp.append(w)
-    warp = torch.stack(warp, axis=-1)
+    warp = torch.stack(warp, dim=-1)
     # Apply the warp to update img_mat.
     img_mat = torch.clip(
         torch.matmul(a_mat, warp), 0, 1)

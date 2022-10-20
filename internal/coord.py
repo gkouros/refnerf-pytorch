@@ -20,7 +20,7 @@ def contract(x):
   """Contracts points towards the origin (Eq 10 of arxiv.org/abs/2111.12077)."""
   eps = torch.finfo(torch.float32).eps
   # Clamping to eps prevents non-finite gradients when x == 0.
-  x_mag_sq = torch.maximum(eps, torch.sum(x**2, axis=-1, keepdims=True))
+  x_mag_sq = torch.max(eps, torch.sum(x**2, dim=-1, keepdims=True))
   z = torch.where(x_mag_sq <= 1, x, ((2 * torch.sqrt(x_mag_sq) - 1) / x_mag_sq) * x)
   return z
 
@@ -29,7 +29,7 @@ def inv_contract(z):
   """The inverse of contract()."""
   eps = torch.finfo(torch.float32).eps
   # Clamping to eps prevents non-finite gradients when z == 0.
-  z_mag_sq = torch.maximum(eps, torch.sum(z**2, axis=-1, keepdims=True))
+  z_mag_sq = torch.max(eps, torch.sum(z**2, dim=-1, keepdims=True))
   x = torch.where(z_mag_sq <= 1, z, z / (2 * torch.sqrt(z_mag_sq) - z_mag_sq))
   return x
 
@@ -121,14 +121,14 @@ def integrated_pos_enc(mean, var, min_deg, max_deg):
   scaled_var = torch.reshape(var[..., None, :] * scales[:, None]**2, shape)
 
   return expected_sin(
-      torch.concatenate([scaled_mean, scaled_mean + 0.5 * torch.pi], axis=-1),
-      torch.concatenate([scaled_var] * 2, axis=-1))
+      torch.cat([scaled_mean, scaled_mean + 0.5 * torch.pi], dim=-1),
+      torch.cat([scaled_var] * 2, dim=-1))
 
 
 def lift_and_diagonalize(mean, cov, basis):
   """Project `mean` and `cov` onto basis and diagonalize the projected cov."""
   fn_mean = math.matmul(mean, basis)
-  fn_cov_diag = torch.sum(basis * math.matmul(cov, basis), axis=-2)
+  fn_cov_diag = torch.sum(basis * math.matmul(cov, basis), dim=-2)
   return fn_mean, fn_cov_diag
 
 
@@ -139,8 +139,8 @@ def pos_enc(x, min_deg, max_deg, append_identity=True):
   scaled_x = torch.reshape((x[..., None, :] * scales[:, None]), shape)
   # Note that we're not using safe_sin, unlike IPE.
   four_feat = torch.sin(
-      torch.concatenate([scaled_x, scaled_x + 0.5 * torch.pi], axis=-1))
+      torch.cat([scaled_x, scaled_x + 0.5 * torch.pi], dim=-1))
   if append_identity:
-    return torch.concatenate([x] + [four_feat], axis=-1)
+    return torch.cat([x] + [four_feat], dim=-1)
   else:
     return four_feat
