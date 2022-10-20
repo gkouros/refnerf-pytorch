@@ -15,7 +15,6 @@
 """Helper functions for visualizing things."""
 
 from internal import stepfun
-import jax.numpy as jnp
 from matplotlib import cm
 
 
@@ -24,24 +23,24 @@ def weighted_percentile(x, w, ps, assume_sorted=False):
   x = x.reshape([-1])
   w = w.reshape([-1])
   if not assume_sorted:
-    sortidx = jnp.argsort(x)
+    sortidx = torch.argsort(x)
     x, w = x[sortidx], w[sortidx]
-  acc_w = jnp.cumsum(w)
-  return jnp.interp(jnp.array(ps) * (acc_w[-1] / 100), acc_w, x)
+  acc_w = torch.cumsum(w)
+  return torch.interp(torch.array(ps) * (acc_w[-1] / 100), acc_w, x)
 
 
 def sinebow(h):
   """A cyclic and uniform colormap, see http://basecase.org/env/on-rainbows."""
-  f = lambda x: jnp.sin(jnp.pi * x)**2
-  return jnp.stack([f(3 / 6 - h), f(5 / 6 - h), f(7 / 6 - h)], -1)
+  f = lambda x: torch.sin(torch.pi * x)**2
+  return torch.stack([f(3 / 6 - h), f(5 / 6 - h), f(7 / 6 - h)], -1)
 
 
 def matte(vis, acc, dark=0.8, light=1.0, width=8):
   """Set non-accumulated pixels to a Photoshop-esque checker pattern."""
-  bg_mask = jnp.logical_xor(
-      (jnp.arange(acc.shape[0]) % (2 * width) // width)[:, None],
-      (jnp.arange(acc.shape[1]) % (2 * width) // width)[None, :])
-  bg = jnp.where(bg_mask, light, dark)
+  bg_mask = torch.logical_xor(
+      (torch.arange(acc.shape[0]) % (2 * width) // width)[:, None],
+      (torch.arange(acc.shape[1]) % (2 * width) // width)[None, :])
+  bg = torch.where(bg_mask, light, dark)
   return vis * acc[:, :, None] + (bg * (1 - acc))[:, :, None]
 
 
@@ -78,7 +77,7 @@ def visualize_cmap(value,
       value, weight, [50 - percentile / 2, 50 + percentile / 2])
 
   # If `lo` or `hi` are None, use the automatically-computed bounds above.
-  eps = jnp.finfo(jnp.float32).eps
+  eps = torch.finfo(torch.float32).eps
   lo = lo or (lo_auto - eps)
   hi = hi or (hi_auto + eps)
 
@@ -87,11 +86,11 @@ def visualize_cmap(value,
 
   # Wrap the values around if requested.
   if modulus:
-    value = jnp.mod(value, modulus) / modulus
+    value = torch.mod(value, modulus) / modulus
   else:
     # Otherwise, just scale to [0, 1].
-    value = jnp.nan_to_num(
-        jnp.clip((value - jnp.minimum(lo, hi)) / jnp.abs(hi - lo), 0, 1))
+    value = torch.nan_to_num(
+        torch.clip((value - torch.minimum(lo, hi)) / torch.abs(hi - lo), 0, 1))
 
   if colormap:
     colorized = colormap(value)[:, :, :3]
@@ -120,42 +119,42 @@ def visualize_rays(dist,
                    resolution=2048,
                    bg_color=0.8):
   """Visualize a bundle of rays."""
-  dist_vis = jnp.linspace(*dist_range, resolution + 1)
+  dist_vis = torch.linspace(*dist_range, resolution + 1)
   vis_rgb, vis_alpha = [], []
   for ds, ws, rs in zip(dist, weights, rgbs):
     vis_rs, vis_ws = [], []
     for d, w, r in zip(ds, ws, rs):
       if accumulate:
         # Produce the accumulated color and weight at each point along the ray.
-        w_csum = jnp.cumsum(w, axis=0)
-        rw_csum = jnp.cumsum((r * w[:, None]), axis=0)
-        eps = jnp.finfo(jnp.float32).eps
+        w_csum = torch.cumsum(w, axis=0)
+        rw_csum = torch.cumsum((r * w[:, None]), axis=0)
+        eps = torch.finfo(torch.float32).eps
         r, w = (rw_csum + eps) / (w_csum[:, None] + 2 * eps), w_csum
       vis_rs.append(stepfun.resample(dist_vis, d, r.T, use_avg=True).T)
       vis_ws.append(stepfun.resample(dist_vis, d, w.T, use_avg=True).T)
-    vis_rgb.append(jnp.stack(vis_rs))
-    vis_alpha.append(jnp.stack(vis_ws))
-  vis_rgb = jnp.stack(vis_rgb, axis=1)
-  vis_alpha = jnp.stack(vis_alpha, axis=1)
+    vis_rgb.append(torch.stack(vis_rs))
+    vis_alpha.append(torch.stack(vis_ws))
+  vis_rgb = torch.stack(vis_rgb, axis=1)
+  vis_alpha = torch.stack(vis_alpha, axis=1)
 
   if renormalize:
     # Scale the alphas so that the largest value is 1, for visualization.
-    vis_alpha /= jnp.maximum(jnp.finfo(jnp.float32).eps, jnp.max(vis_alpha))
+    vis_alpha /= torch.maximum(torch.finfo(torch.float32).eps, torch.max(vis_alpha))
 
   if resolution > vis_rgb.shape[0]:
     rep = resolution // (vis_rgb.shape[0] * vis_rgb.shape[1] + 1)
     stride = rep * vis_rgb.shape[1]
 
-    vis_rgb = jnp.tile(vis_rgb, (1, 1, rep, 1)).reshape((-1,) + vis_rgb.shape[2:])
-    vis_alpha = jnp.tile(vis_alpha, (1, 1, rep)).reshape((-1,) + vis_alpha.shape[2:])
+    vis_rgb = torch.tile(vis_rgb, (1, 1, rep, 1)).reshape((-1,) + vis_rgb.shape[2:])
+    vis_alpha = torch.tile(vis_alpha, (1, 1, rep)).reshape((-1,) + vis_alpha.shape[2:])
 
     # Add a strip of background pixels after each set of levels of rays.
     vis_rgb = vis_rgb.reshape((-1, stride) + vis_rgb.shape[1:])
     vis_alpha = vis_alpha.reshape((-1, stride) + vis_alpha.shape[1:])
-    vis_rgb = jnp.concatenate([vis_rgb, jnp.zeros_like(vis_rgb[:, :1])],
+    vis_rgb = torch.concatenate([vis_rgb, torch.zeros_like(vis_rgb[:, :1])],
                               axis=1).reshape((-1,) + vis_rgb.shape[2:])
-    vis_alpha = jnp.concatenate(
-        [vis_alpha, jnp.zeros_like(vis_alpha[:, :1])],
+    vis_alpha = torch.concatenate(
+        [vis_alpha, torch.zeros_like(vis_alpha[:, :1])],
         axis=1).reshape((-1,) + vis_alpha.shape[2:])
 
   # Matte the RGB image over the background.
@@ -170,7 +169,7 @@ def visualize_rays(dist,
 def visualize_suite(rendering, rays):
   """A wrapper around other visualizations for easy integration."""
 
-  depth_curve_fn = lambda x: -jnp.log(x + jnp.finfo(jnp.float32).eps)
+  depth_curve_fn = lambda x: -torch.log(x + torch.finfo(torch.float32).eps)
 
   rgb = rendering['rgb']
   acc = rendering['acc']
@@ -179,7 +178,7 @@ def visualize_suite(rendering, rays):
   distance_median = rendering['distance_median']
   distance_p5 = rendering['distance_percentile_5']
   distance_p95 = rendering['distance_percentile_95']
-  acc = jnp.where(jnp.isnan(distance_mean), jnp.zeros_like(acc), acc)
+  acc = torch.where(torch.isnan(distance_mean), torch.zeros_like(acc), acc)
 
   # The xyz coordinates where rays terminate.
   coords = rays.origins + rays.directions * distance_mean[:, :, None]
@@ -196,37 +195,37 @@ def visualize_suite(rendering, rays):
   #   Red: A thin density, then a thick density, [x-delta, x, x+epsilon]
   #   Blue: A thick density, then a thin density, [x-epsilon, x, x+delta]
   vis_depth_triplet = visualize_cmap(
-      jnp.stack(
+      torch.stack(
           [2 * distance_median - distance_p5, distance_median, distance_p95],
           axis=-1),
       acc,
       None,
-      curve_fn=lambda x: jnp.log(x + jnp.finfo(jnp.float32).eps))
+      curve_fn=lambda x: torch.log(x + torch.finfo(torch.float32).eps))
 
   dist = rendering['ray_sdist']
   dist_range = (0, 1)
   weights = rendering['ray_weights']
-  rgbs = [jnp.clip(r, 0, 1) for r in rendering['ray_rgbs']]
+  rgbs = [torch.clip(r, 0, 1) for r in rendering['ray_rgbs']]
 
   vis_ray_colors, _ = visualize_rays(dist, dist_range, weights, rgbs)
 
-  sqrt_weights = [jnp.sqrt(w) for w in weights]
+  sqrt_weights = [torch.sqrt(w) for w in weights]
   sqrt_ray_weights, ray_alpha = visualize_rays(
       dist,
       dist_range,
-      [jnp.ones_like(lw) for lw in sqrt_weights],
+      [torch.ones_like(lw) for lw in sqrt_weights],
       [lw[..., None] for lw in sqrt_weights],
       bg_color=0,
   )
   sqrt_ray_weights = sqrt_ray_weights[..., 0]
 
-  null_color = jnp.array([1., 0., 0.])
-  vis_ray_weights = jnp.where(
+  null_color = torch.array([1., 0., 0.])
+  vis_ray_weights = torch.where(
       ray_alpha[:, :, None] == 0,
       null_color[None, None],
       visualize_cmap(
           sqrt_ray_weights,
-          jnp.ones_like(sqrt_ray_weights),
+          torch.ones_like(sqrt_ray_weights),
           cm.get_cmap('gray'),
           lo=0,
           hi=1,
@@ -255,6 +254,6 @@ def visualize_suite(rendering, rays):
       vis[key] = matte(val / 2. + 0.5, acc)
 
   if 'roughness' in rendering:
-    vis['roughness'] = matte(jnp.tanh(rendering['roughness']), acc)
+    vis['roughness'] = matte(torch.tanh(rendering['roughness']), acc)
 
   return vis
