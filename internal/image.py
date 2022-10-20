@@ -18,21 +18,19 @@ import types
 from typing import Optional, Union
 
 import dm_pix
-import jax
-import jax.numpy as jnp
 import numpy as np
 
-_Array = Union[np.ndarray, jnp.ndarray]
+_Array = Union[np.ndarray, torch.ndarray]
 
 
 def mse_to_psnr(mse):
   """Compute PSNR given an MSE (we assume the maximum pixel value is 1)."""
-  return -10. / jnp.log(10.) * jnp.log(mse)
+  return -10. / torch.log(10.) * torch.log(mse)
 
 
 def psnr_to_mse(psnr):
   """Compute MSE given a PSNR (we assume the maximum pixel value is 1)."""
-  return jnp.exp(-0.1 * jnp.log(10.) * psnr)
+  return torch.exp(-0.1 * torch.log(10.) * psnr)
 
 
 def ssim_to_dssim(ssim):
@@ -47,7 +45,7 @@ def dssim_to_ssim(dssim):
 
 def linear_to_srgb(linear: _Array,
                    eps: Optional[float] = None,
-                   xnp: types.ModuleType = jnp) -> _Array:
+                   xnp: types.ModuleType = torch) -> _Array:
   """Assumes `linear` is in [0, 1], see https://en.wikipedia.org/wiki/SRGB."""
   if eps is None:
     eps = xnp.finfo(xnp.float32).eps
@@ -58,7 +56,7 @@ def linear_to_srgb(linear: _Array,
 
 def srgb_to_linear(srgb: _Array,
                    eps: Optional[float] = None,
-                   xnp: types.ModuleType = jnp) -> _Array:
+                   xnp: types.ModuleType = torch) -> _Array:
   """Assumes `srgb` is in [0, 1], see https://en.wikipedia.org/wiki/SRGB."""
   if eps is None:
     eps = xnp.finfo(xnp.float32).eps
@@ -99,8 +97,8 @@ def color_correct(img, ref, num_iters=5, eps=0.5 / 255):
     for c in range(num_channels):
       a_mat.append(img_mat[:, c:(c + 1)] * img_mat[:, c:])  # Quadratic term.
     a_mat.append(img_mat)  # Linear term.
-    a_mat.append(jnp.ones_like(img_mat[:, :1]))  # Bias term.
-    a_mat = jnp.concatenate(a_mat, axis=-1)
+    a_mat.append(torch.ones_like(img_mat[:, :1]))  # Bias term.
+    a_mat = torch.concatenate(a_mat, axis=-1)
     warp = []
     for c in range(num_channels):
       # Construct the right hand side of a linear system containing each color
@@ -109,18 +107,18 @@ def color_correct(img, ref, num_iters=5, eps=0.5 / 255):
       # Ignore rows of the linear system that were saturated in the input or are
       # saturated in the current corrected color estimate.
       mask = mask0[:, c] & is_unclipped(img_mat[:, c]) & is_unclipped(b)
-      ma_mat = jnp.where(mask[:, None], a_mat, 0)
-      mb = jnp.where(mask, b, 0)
-      # Solve the linear system. We're using the np.lstsq instead of jnp because
+      ma_mat = torch.where(mask[:, None], a_mat, 0)
+      mb = torch.where(mask, b, 0)
+      # Solve the linear system. We're using the np.lstsq instead of torch because
       # it's significantly more stable in this case, for some reason.
       w = np.linalg.lstsq(ma_mat, mb, rcond=-1)[0]
-      assert jnp.all(jnp.isfinite(w))
+      assert torch.all(torch.isfinite(w))
       warp.append(w)
-    warp = jnp.stack(warp, axis=-1)
+    warp = torch.stack(warp, axis=-1)
     # Apply the warp to update img_mat.
-    img_mat = jnp.clip(
-        jnp.matmul(a_mat, warp, precision=jax.lax.Precision.HIGHEST), 0, 1)
-  corrected_img = jnp.reshape(img_mat, img.shape)
+    img_mat = torch.clip(
+        torch.matmul(a_mat, warp), 0, 1)
+  corrected_img = torch.reshape(img_mat, img.shape)
   return corrected_img
 
 
@@ -128,7 +126,7 @@ class MetricHarness:
   """A helper class for evaluating several error metrics."""
 
   def __init__(self):
-    self.ssim_fn = jax.jit(dm_pix.ssim)
+    self.ssim_fn = dm_pix.ssim
 
   def __call__(self, rgb_pred, rgb_gt, name_fn=lambda s: s):
     """Evaluate the error between a predicted rgb image and the true image."""
