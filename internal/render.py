@@ -15,14 +15,13 @@
 """Helper functions for shooting and rendering rays."""
 
 from internal import stepfun
-import jax.numpy as jnp
 
 
 def lift_gaussian(d, t_mean, t_var, r_var, diag):
   """Lift a Gaussian defined along a ray to 3D coordinates."""
   mean = d[..., None, :] * t_mean[..., None]
 
-  d_mag_sq = jnp.maximum(1e-10, jnp.sum(d**2, axis=-1, keepdims=True))
+  d_mag_sq = torch.maximum(1e-10, torch.sum(d**2, axis=-1, keepdims=True))
 
   if diag:
     d_outer_diag = d**2
@@ -33,7 +32,7 @@ def lift_gaussian(d, t_mean, t_var, r_var, diag):
     return mean, cov_diag
   else:
     d_outer = d[..., :, None] * d[..., None, :]
-    eye = jnp.eye(d.shape[-1])
+    eye = torch.eye(d.shape[-1])
     null_outer = eye - d[..., :, None] * (d / d_mag_sq)[..., None, :]
     t_cov = t_var[..., None, None] * d_outer[..., None, :, :]
     xy_cov = r_var[..., None, None] * null_outer[..., None, :, :]
@@ -48,7 +47,7 @@ def conical_frustum_to_gaussian(d, t0, t1, base_radius, diag, stable=True):
   radius at dist=1. Doesn't assume `d` is normalized.
 
   Args:
-    d: jnp.float32 3-vector, the axis of the cone
+    d: torch.float32 3-vector, the axis of the cone
     t0: float, the starting distance of the frustum.
     t1: float, the ending distance of the frustum.
     base_radius: float, the scale of the radius as a function of distance.
@@ -63,9 +62,9 @@ def conical_frustum_to_gaussian(d, t0, t1, base_radius, diag, stable=True):
     # Equation 7 in the paper (https://arxiv.org/abs/2103.13415).
     mu = (t0 + t1) / 2  # The average of the two `t` values.
     hw = (t1 - t0) / 2  # The half-width of the two `t` values.
-    eps = jnp.finfo(jnp.float32).eps
-    t_mean = mu + (2 * mu * hw**2) / jnp.maximum(eps, 3 * mu**2 + hw**2)
-    denom = jnp.maximum(eps, 3 * mu**2 + hw**2)
+    eps = torch.finfo(torch.float32).eps
+    t_mean = mu + (2 * mu * hw**2) / torch.maximum(eps, 3 * mu**2 + hw**2)
+    denom = torch.maximum(eps, 3 * mu**2 + hw**2)
     t_var = (hw**2) / 3 - (4 / 15) * hw**4 * (12 * mu**2 - hw**2) / denom**2
     r_var = (mu**2) / 4 + (5 / 12) * hw**2 - (4 / 15) * (hw**4) / denom
   else:
@@ -85,7 +84,7 @@ def cylinder_to_gaussian(d, t0, t1, radius, diag):
   radius. Does not renormalize `d`.
 
   Args:
-    d: jnp.float32 3-vector, the axis of the cylinder
+    d: torch.float32 3-vector, the axis of the cylinder
     t0: float, the starting distance of the cylinder.
     t1: float, the ending distance of the cylinder.
     radius: float, the radius of the cylinder
@@ -130,21 +129,21 @@ def cast_rays(tdist, origins, directions, radii, ray_shape, diag=True):
 def compute_alpha_weights(density, tdist, dirs, opaque_background=False):
   """Helper function for computing alpha compositing weights."""
   t_delta = tdist[..., 1:] - tdist[..., :-1]
-  delta = t_delta * jnp.linalg.norm(dirs[..., None, :], axis=-1)
+  delta = t_delta * torch.linalg.norm(dirs[..., None, :], axis=-1)
   density_delta = density * delta
 
   if opaque_background:
     # Equivalent to making the final t-interval infinitely wide.
-    density_delta = jnp.concatenate([
+    density_delta = torch.concatenate([
         density_delta[..., :-1],
-        jnp.full_like(density_delta[..., -1:], jnp.inf)
+        torch.full_like(density_delta[..., -1:], torch.inf)
     ],
                                     axis=-1)
 
-  alpha = 1 - jnp.exp(-density_delta)
-  trans = jnp.exp(-jnp.concatenate([
-      jnp.zeros_like(density_delta[..., :1]),
-      jnp.cumsum(density_delta[..., :-1], axis=-1)
+  alpha = 1 - torch.exp(-density_delta)
+  trans = torch.exp(-torch.concatenate([
+      torch.zeros_like(density_delta[..., :1]),
+      torch.cumsum(density_delta[..., :-1], axis=-1)
   ],
                                    axis=-1))
   weights = alpha * trans
@@ -161,11 +160,11 @@ def volumetric_rendering(rgbs,
   """Volumetric Rendering Function.
 
   Args:
-    rgbs: jnp.ndarray(float32), color, [batch_size, num_samples, 3]
-    weights: jnp.ndarray(float32), weights, [batch_size, num_samples].
-    tdist: jnp.ndarray(float32), [batch_size, num_samples].
-    bg_rgbs: jnp.ndarray(float32), the color(s) to use for the background.
-    t_far: jnp.ndarray(float32), [batch_size, 1], the distance of the far plane.
+    rgbs: torch.ndarray(float32), color, [batch_size, num_samples, 3]
+    weights: torch.ndarray(float32), weights, [batch_size, num_samples].
+    tdist: torch.ndarray(float32), [batch_size, num_samples].
+    bg_rgbs: torch.ndarray(float32), the color(s) to use for the background.
+    t_far: torch.ndarray(float32), [batch_size, 1], the distance of the far plane.
     compute_extras: bool, if True, compute extra quantities besides color.
     extras: dict, a set of values along rays to render by alpha compositing.
 
@@ -173,11 +172,11 @@ def volumetric_rendering(rgbs,
     rendering: a dict containing an rgb image of size [batch_size, 3], and other
       visualizations if compute_extras=True.
   """
-  eps = jnp.finfo(jnp.float32).eps
+  eps = torch.finfo(torch.float32).eps
   rendering = {}
 
   acc = weights.sum(axis=-1)
-  bg_w = jnp.maximum(0, 1 - acc[..., None])  # The weight of the background.
+  bg_w = torch.maximum(0, 1 - acc[..., None])  # The weight of the background.
   rgb = (weights[..., None] * rgbs).sum(axis=-2) + bg_w * bg_rgbs
   rendering['rgb'] = rgb
 
@@ -189,19 +188,19 @@ def volumetric_rendering(rgbs,
         if v is not None:
           rendering[k] = (weights[..., None] * v).sum(axis=-2)
 
-    expectation = lambda x: (weights * x).sum(axis=-1) / jnp.maximum(eps, acc)
+    expectation = lambda x: (weights * x).sum(axis=-1) / torch.maximum(eps, acc)
     t_mids = 0.5 * (tdist[..., :-1] + tdist[..., 1:])
     # For numerical stability this expectation is computing using log-distance.
     rendering['distance_mean'] = (
-        jnp.clip(
-            jnp.nan_to_num(jnp.exp(expectation(jnp.log(t_mids))), jnp.inf),
+        torch.clip(
+            torch.nan_to_num(torch.exp(expectation(torch.log(t_mids))), torch.inf),
             tdist[..., 0], tdist[..., -1]))
 
     # Add an extra fencepost with the far distance at the end of each ray, with
     # whatever weight is needed to make the new weight vector sum to exactly 1
     # (`weights` is only guaranteed to sum to <= 1, not == 1).
-    t_aug = jnp.concatenate([tdist, t_far], axis=-1)
-    weights_aug = jnp.concatenate([weights, bg_w], axis=-1)
+    t_aug = torch.concatenate([tdist, t_far], axis=-1)
+    weights_aug = torch.concatenate([weights, bg_w], axis=-1)
 
     ps = [5, 50, 95]
     distance_percentiles = stepfun.weighted_percentile(t_aug, weights_aug, ps)
