@@ -22,11 +22,10 @@ from internal import configs
 from internal import math
 from internal import stepfun
 from internal import utils
-import jax.numpy as jnp
 import numpy as np
 import scipy
 
-_Array = Union[np.ndarray, jnp.ndarray]
+_Array = Union[np.ndarray, torch.ndarray]
 
 
 def convert_to_ndc(origins: _Array,
@@ -41,7 +40,7 @@ def convert_to_ndc(origins: _Array,
     directions: ndarray(float32), [..., 3], world space ray directions.
     pixtocam: ndarray(float32), [3, 3], inverse intrinsic matrix.
     near: float, near plane along the negative z axis.
-    xnp: either numpy or jax.numpy.
+    xnp: either numpy or torch.
 
   Returns:
     origins_ndc: ndarray(float32), [..., 3].
@@ -526,7 +525,7 @@ def pixels_to_rays(
     distortion_params: dict of floats, optional camera distortion parameters.
     pixtocam_ndc: float array, [3, 3], optional inverse intrinsics for NDC.
     camtype: camera_utils.ProjectionType, fisheye or perspective camera.
-    xnp: either numpy or jax.numpy.
+    xnp: either numpy or torch.
 
   Returns:
     origins: float array, shape SH + [3], ray origin points.
@@ -548,9 +547,7 @@ def pixels_to_rays(
       pix_to_dir(pix_x_int, pix_y_int + 1)
   ], axis=0)
 
-  # For jax, need to specify high-precision matmul.
-  matmul = math.matmul if xnp == jnp else xnp.matmul
-  mat_vec_mul = lambda A, b: matmul(A, b[..., None])[..., 0]
+  mat_vec_mul = lambda A, b: xnp.matmul(A, b[..., None])[..., 0]
 
   # Apply inverse intrinsic matrices.
   camera_dirs_stacked = mat_vec_mul(pixtocams, pixel_dirs_stacked)
@@ -632,7 +629,7 @@ def cast_ray_batch(
     pixels: integer pixel coordinates and camera indices.
       These fields can be an arbitrary batch shape.
     camtype: camera_utils.ProjectionType, fisheye or perspective camera.
-    xnp: either numpy or jax.numpy.
+    xnp: either numpy or torch.
 
   Returns:
     rays: Rays dataclass with computed 3D world space ray data.
@@ -713,9 +710,7 @@ def cast_spherical_rays(camtoworld: _Array,
   ],
                          axis=-1)
 
-  # For jax, need to specify high-precision matmul.
-  matmul = math.matmul if xnp == jnp else xnp.matmul
-  directions = matmul(camtoworld[:3, :3], directions[..., None])[..., 0]
+  directions = xnp.matmul(camtoworld[:3, :3], directions[..., None])[..., 0]
 
   dy = xnp.diff(directions[:, :-1], axis=0)
   dx = xnp.diff(directions[:-1, :], axis=1)
