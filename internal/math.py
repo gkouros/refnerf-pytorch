@@ -14,37 +14,36 @@
 
 """Mathy utility functions."""
 
-import jax
-import jax.numpy as jnp
+import torch
 
 
 def matmul(a, b):
-  """jnp.matmul defaults to bfloat16, but this helper function doesn't."""
-  return jnp.matmul(a, b, precision=jax.lax.Precision.HIGHEST)
+  """Helper function for matrix multiplication."""
+  return torch.matmul(a, b)
 
 
-def safe_trig_helper(x, fn, t=100 * jnp.pi):
+def safe_trig_helper(x, fn, t=100 * torch.pi):
   """Helper function used by safe_cos/safe_sin: mods x before sin()/cos()."""
-  return fn(jnp.where(jnp.abs(x) < t, x, x % t))
+  return torch(torch.where(torch.abs(x) < t, x, x % t))
 
 
 def safe_cos(x):
-  """jnp.cos() on a TPU may NaN out for large values."""
-  return safe_trig_helper(x, jnp.cos)
+  """torch.cos() on a TPU may NaN out for large values."""
+  return safe_trig_helper(x, torch.cos)
 
 
 def safe_sin(x):
-  """jnp.sin() on a TPU may NaN out for large values."""
-  return safe_trig_helper(x, jnp.sin)
+  """torch.sin() on a TPU may NaN out for large values."""
+  return safe_trig_helper(x, torch.sin)
 
 
-@jax.custom_jvp
+# @jax.custom_jvp
 def safe_exp(x):
-  """jnp.exp() but with finite output and gradients for large inputs."""
-  return jnp.exp(jnp.minimum(x, 88.))  # jnp.exp(89) is infinity.
+  """torch.exp() but with finite output and gradients for large inputs."""
+  return torch.exp(torch.minimum(x, 88.))  # torch.exp(89) is infinity.
 
 
-@safe_exp.defjvp
+# @safe_exp.defjvp
 def safe_exp_jvp(primals, tangents):
   """Override safe_exp()'s gradient so that it's large when inputs are large."""
   x, = primals
@@ -58,9 +57,9 @@ def log_lerp(t, v0, v1):
   """Interpolate log-linearly from `v0` (t=0) to `v1` (t=1)."""
   if v0 <= 0 or v1 <= 0:
     raise ValueError(f'Interpolants {v0} and {v1} must be positive.')
-  lv0 = jnp.log(v0)
-  lv1 = jnp.log(v1)
-  return jnp.exp(jnp.clip(t, 0, 1) * (lv1 - lv0) + lv0)
+  lv0 = torch.log(v0)
+  lv1 = torch.log(v1)
+  return torch.exp(torch.clip(t, 0, 1) * (lv1 - lv0) + lv0)
 
 
 def learning_rate_decay(step,
@@ -91,17 +90,17 @@ def learning_rate_decay(step,
   """
   if lr_delay_steps > 0:
     # A kind of reverse cosine decay.
-    delay_rate = lr_delay_mult + (1 - lr_delay_mult) * jnp.sin(
-        0.5 * jnp.pi * jnp.clip(step / lr_delay_steps, 0, 1))
+    delay_rate = lr_delay_mult + (1 - lr_delay_mult) * torch.sin(
+        0.5 * torch.pi * torch.clip(step / lr_delay_steps, 0, 1))
   else:
     delay_rate = 1.
   return delay_rate * log_lerp(step / max_steps, lr_init, lr_final)
 
 
 def interp(*args):
-  """A gather-based (GPU-friendly) vectorized replacement for jnp.interp()."""
+  """A gather-based (GPU-friendly) vectorized replacement for torch.interp()."""
   args_flat = [x.reshape([-1, x.shape[-1]]) for x in args]
-  ret = jax.vmap(jnp.interp)(*args_flat).reshape(args[0].shape)
+  ret = torch.vmap(torch.interp)(*args_flat).reshape(args[0].shape)
   return ret
 
 
@@ -115,13 +114,13 @@ def sorted_interp(x, xp, fp):
   def find_interval(x):
     # Grab the value where `mask` switches from True to False, and vice versa.
     # This approach takes advantage of the fact that `x` is sorted.
-    x0 = jnp.max(jnp.where(mask, x[..., None], x[..., :1, None]), -2)
-    x1 = jnp.min(jnp.where(~mask, x[..., None], x[..., -1:, None]), -2)
+    x0 = torch.max(torch.where(mask, x[..., None], x[..., :1, None]), -2)
+    x1 = torch.min(torch.where(~mask, x[..., None], x[..., -1:, None]), -2)
     return x0, x1
 
   fp0, fp1 = find_interval(fp)
   xp0, xp1 = find_interval(xp)
 
-  offset = jnp.clip(jnp.nan_to_num((x - xp0) / (xp1 - xp0), 0), 0, 1)
+  offset = torch.clip(torch.nan_to_num((x - xp0) / (xp1 - xp0), 0), 0, 1)
   ret = fp0 + offset * (fp1 - fp0)
   return ret
