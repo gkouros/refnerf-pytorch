@@ -14,50 +14,49 @@
 """Tools for manipulating coordinate spaces and distances along rays."""
 
 from internal import math
-import jax
-import jax.numpy as jnp
 
 
 def contract(x):
   """Contracts points towards the origin (Eq 10 of arxiv.org/abs/2111.12077)."""
-  eps = jnp.finfo(jnp.float32).eps
+  eps = torch.finfo(torch.float32).eps
   # Clamping to eps prevents non-finite gradients when x == 0.
-  x_mag_sq = jnp.maximum(eps, jnp.sum(x**2, axis=-1, keepdims=True))
-  z = jnp.where(x_mag_sq <= 1, x, ((2 * jnp.sqrt(x_mag_sq) - 1) / x_mag_sq) * x)
+  x_mag_sq = torch.maximum(eps, torch.sum(x**2, axis=-1, keepdims=True))
+  z = torch.where(x_mag_sq <= 1, x, ((2 * torch.sqrt(x_mag_sq) - 1) / x_mag_sq) * x)
   return z
 
 
 def inv_contract(z):
   """The inverse of contract()."""
-  eps = jnp.finfo(jnp.float32).eps
+  eps = torch.finfo(torch.float32).eps
   # Clamping to eps prevents non-finite gradients when z == 0.
-  z_mag_sq = jnp.maximum(eps, jnp.sum(z**2, axis=-1, keepdims=True))
-  x = jnp.where(z_mag_sq <= 1, z, z / (2 * jnp.sqrt(z_mag_sq) - z_mag_sq))
+  z_mag_sq = torch.maximum(eps, torch.sum(z**2, axis=-1, keepdims=True))
+  x = torch.where(z_mag_sq <= 1, z, z / (2 * torch.sqrt(z_mag_sq) - z_mag_sq))
   return x
 
 
-def track_linearize(fn, mean, cov):
-  """Apply function `fn` to a set of means and covariances, ala a Kalman filter.
+# def track_linearize(fn, mean, cov):
+#   """Apply function `fn` to a set of means and covariances, ala a Kalman filter.
 
-  We can analytically transform a Gaussian parameterized by `mean` and `cov`
-  with a function `fn` by linearizing `fn` around `mean`, and taking advantage
-  of the fact that Covar[Ax + y] = A(Covar[x])A^T (see
-  https://cs.nyu.edu/~roweis/notes/gaussid.pdf for details).
+#   We can analytically transform a Gaussian parameterized by `mean` and `cov`
+#   with a function `fn` by linearizing `fn` around `mean`, and taking advantage
+#   of the fact that Covar[Ax + y] = A(Covar[x])A^T (see
+#   https://cs.nyu.edu/~roweis/notes/gaussid.pdf for details).
 
-  Args:
-    fn: the function applied to the Gaussians parameterized by (mean, cov).
-    mean: a tensor of means, where the last axis is the dimension.
-    cov: a tensor of covariances, where the last two axes are the dimensions.
+#   Args:
+#     fn: the function applied to the Gaussians parameterized by (mean, cov).
+#     mean: a tensor of means, where the last axis is the dimension.
+#     cov: a tensor of covariances, where the last two axes are the dimensions.
 
-  Returns:
-    fn_mean: the transformed means.
-    fn_cov: the transformed covariances.
-  """
-  if (len(mean.shape) + 1) != len(cov.shape):
-    raise ValueError('cov must be non-diagonal')
-  fn_mean, lin_fn = jax.linearize(fn, mean)
-  fn_cov = jax.vmap(lin_fn, -1, -2)(jax.vmap(lin_fn, -1, -2)(cov))
-  return fn_mean, fn_cov
+#   Returns:
+#     fn_mean: the transformed means.
+#     fn_cov: the transformed covariances.
+#   """
+#   if (len(mean.shape) + 1) != len(cov.shape):
+#     raise ValueError('cov must be non-diagonal')
+#   fn_mean, lin_fn = jax.linearize(fn, mean)  #TODO: HOW THE FUCK DO I FIX THIS?
+  
+#   fn_cov = torch.vmap(lin_fn, -1, -2)(torch.vmap(lin_fn, -1, -2)(cov))
+#   return fn_mean, fn_cov
 
 
 def construct_ray_warps(fn, t_near, t_far):
@@ -80,15 +79,15 @@ def construct_ray_warps(fn, t_near, t_far):
     fn_inv = lambda x: x
   elif fn == 'piecewise':
     # Piecewise spacing combining identity and 1/x functions to allow t_near=0.
-    fn_fwd = lambda x: jnp.where(x < 1, .5 * x, 1 - .5 / x)
-    fn_inv = lambda x: jnp.where(x < .5, 2 * x, .5 / (1 - x))
+    fn_fwd = lambda x: torch.where(x < 1, .5 * x, 1 - .5 / x)
+    fn_inv = lambda x: torch.where(x < .5, 2 * x, .5 / (1 - x))
   else:
     inv_mapping = {
-        'reciprocal': jnp.reciprocal,
-        'log': jnp.exp,
-        'exp': jnp.log,
-        'sqrt': jnp.square,
-        'square': jnp.sqrt
+        'reciprocal': torch.reciprocal,
+        'log': torch.exp,
+        'exp': torch.log,
+        'sqrt': torch.square,
+        'square': torch.sqrt
     }
     fn_fwd = fn
     fn_inv = inv_mapping[fn.__name__]
@@ -101,7 +100,7 @@ def construct_ray_warps(fn, t_near, t_far):
 
 def expected_sin(mean, var):
   """Compute the mean of sin(x), x ~ N(mean, var)."""
-  return jnp.exp(-0.5 * var) * math.safe_sin(mean)  # large var -> small value.
+  return torch.exp(-0.5 * var) * math.safe_sin(mean)  # large var -> small value.
 
 
 def integrated_pos_enc(mean, var, min_deg, max_deg):
@@ -114,34 +113,34 @@ def integrated_pos_enc(mean, var, min_deg, max_deg):
     max_deg: int, the max degree of the encoding.
 
   Returns:
-    encoded: jnp.ndarray, encoded variables.
+    encoded: torch.ndarray, encoded variables.
   """
-  scales = 2**jnp.arange(min_deg, max_deg)
+  scales = 2**torch.arange(min_deg, max_deg)
   shape = mean.shape[:-1] + (-1,)
-  scaled_mean = jnp.reshape(mean[..., None, :] * scales[:, None], shape)
-  scaled_var = jnp.reshape(var[..., None, :] * scales[:, None]**2, shape)
+  scaled_mean = torch.reshape(mean[..., None, :] * scales[:, None], shape)
+  scaled_var = torch.reshape(var[..., None, :] * scales[:, None]**2, shape)
 
   return expected_sin(
-      jnp.concatenate([scaled_mean, scaled_mean + 0.5 * jnp.pi], axis=-1),
-      jnp.concatenate([scaled_var] * 2, axis=-1))
+      torch.concatenate([scaled_mean, scaled_mean + 0.5 * torch.pi], axis=-1),
+      torch.concatenate([scaled_var] * 2, axis=-1))
 
 
 def lift_and_diagonalize(mean, cov, basis):
   """Project `mean` and `cov` onto basis and diagonalize the projected cov."""
   fn_mean = math.matmul(mean, basis)
-  fn_cov_diag = jnp.sum(basis * math.matmul(cov, basis), axis=-2)
+  fn_cov_diag = torch.sum(basis * math.matmul(cov, basis), axis=-2)
   return fn_mean, fn_cov_diag
 
 
 def pos_enc(x, min_deg, max_deg, append_identity=True):
   """The positional encoding used by the original NeRF paper."""
-  scales = 2**jnp.arange(min_deg, max_deg)
+  scales = 2**torch.arange(min_deg, max_deg)
   shape = x.shape[:-1] + (-1,)
-  scaled_x = jnp.reshape((x[..., None, :] * scales[:, None]), shape)
+  scaled_x = torch.reshape((x[..., None, :] * scales[:, None]), shape)
   # Note that we're not using safe_sin, unlike IPE.
-  four_feat = jnp.sin(
-      jnp.concatenate([scaled_x, scaled_x + 0.5 * jnp.pi], axis=-1))
+  four_feat = torch.sin(
+      torch.concatenate([scaled_x, scaled_x + 0.5 * torch.pi], axis=-1))
   if append_identity:
-    return jnp.concatenate([x] + [four_feat], axis=-1)
+    return torch.concatenate([x] + [four_feat], axis=-1)
   else:
     return four_feat
