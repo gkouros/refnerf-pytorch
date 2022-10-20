@@ -327,24 +327,15 @@ class Dataset(threading.Thread, metaclass=abc.ABCMeta):
     Returns:
       batch: dict, has 'rgb' and 'rays'.
     """
-    x = self._queue.get()
-    if self.split == utils.DataSplit.TRAIN:
-      return utils.shard(x)
-    else:
-      # Do NOT move test `rays` to device, since it may be very large.
-      return x
-
+    return self._queue.get()
+  
   def peek(self):
     """Peek at the next training batch or test example without dequeuing it.
 
     Returns:
       batch: dict, has 'rgb' and 'rays'.
     """
-    x = copy.copy(self._queue.queue[0])  # Make a copy of front of queue.
-    if self.split == utils.DataSplit.TRAIN:
-      return utils.shard(x)
-    else:
-      return x
+    return copy.copy(self._queue.queue[0])  # Make a copy of front of queue.
 
   def run(self):
     while True:
