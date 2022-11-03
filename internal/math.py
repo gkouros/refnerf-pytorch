@@ -36,7 +36,8 @@ def safe_sin(x):
   """torch.sin() on a TPU may NaN out for large values."""
   return safe_trig_helper(x, torch.sin)
 
-
+#TODO: needs safe Jacobian calculation. How do I do it in PyTorch?
+# Maybe this solution? https://discuss.pytorch.org/t/notimplementederror-you-must-implement-the-jvp-function-for-custom-autograd-function-to-use-it-with-forward-mode-ad/138245/2
 # @jax.custom_jvp
 def safe_exp(x):
   """torch.exp() but with finite output and gradients for large inputs."""
