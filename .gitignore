@@ -10,3 +10,4 @@ logs/
 *.code-workspace
 data
 *.pkl
+notebooks/
