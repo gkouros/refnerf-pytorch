@@ -78,15 +78,6 @@ class Config:
   predicted_normal_loss_mult: float = 0.0  # Mult. on the predicted normal loss.
   # Mult. on the coarser predicted normal loss.
   predicted_normal_coarse_loss_mult: float = 0.0
-  # weight_decay_mults: FrozenDict[str, Any] = FrozenDict({})  # Weight decays.
-  weight_decay_mults: dict[str, Any] = dict({})  # Weight decays.  #TODO: Check
-  # An example that regularizes the NeRF and the first layer of the prop MLP:
-  #   weight_decay_mults = {
-  #       'NerfMLP_0': 0.00001,
-  #       'PropMLP_0/Dense_0': 0.001,
-  #   }
-  # Any model parameter that isn't specified gets a mult of 0. See the
-  # train_weight_l2_* parameters in TensorBoard to know what can be regularized.
 
   lr_init: float = 0.002  # The initial learning rate.
   lr_final: float = 0.00002  # The final learning rate.
