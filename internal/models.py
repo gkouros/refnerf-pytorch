@@ -72,7 +72,7 @@ class Model(nn.Module):
         train_frac,
         compute_extras,
     ):
-        """The mip-NeRF Model.
+        """The Ref-NeRF Model.
 
         Args:
           rays: util.Rays, a pytree of ray origins, directions, and viewdirs.
