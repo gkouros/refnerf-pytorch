@@ -24,8 +24,10 @@ git clone https://github.com/google-research/multinerf.git
 cd multinerf
 
 # Make a conda environment.
-conda create --name multinerf python=3.9
-conda activate multinerf
+conda create --name refnerf python=3.9
+conda activate refnerf
+conda install pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia
+
 
 # Prepare pip.
 conda install pip
