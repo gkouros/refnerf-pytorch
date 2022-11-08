@@ -6,7 +6,7 @@ CONFIG=$3
 DATA_DIR=/esat/topaz/gkouros/datasets/nerf/$1
 
 source ~/miniconda3/etc/profile.d/conda.sh
-conda activate multinerf
+conda activate refnerf
 
 export PATH="/usr/local/cuda-11/bin:/usr/local/cuda/bin:$PATH"
 export LD_LIBRARY_PATH="/usr/local/cuda-11/lib64:/usr/local/cuda/lib64:$CONDA_PREFIX/lib/:$LD_LIBRARY_PATH"
