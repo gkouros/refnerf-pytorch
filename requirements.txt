@@ -6,3 +6,4 @@ gin-config
 dm_pix
 rawpy
 mediapy
+flatdict
