@@ -30,6 +30,17 @@ from internal import stepfun
 from internal import utils
 
 
+def summarize_tree(tree, fn, ancestry=(), max_depth=3):
+  """Flatten 'tree' while 'fn'-ing values and formatting keys like/this."""
+  stats = {}
+  for k, v in tree.items():
+    name = ancestry + (k,)
+    stats['/'.join(name)] = fn(v)
+    if hasattr(v, 'items') and len(ancestry) < (max_depth - 1):
+      stats.update(summarize_tree(v, fn, ancestry=name, max_depth=max_depth))
+  return stats
+
+
 def compute_data_loss(batch, renderings, rays, config):
     """Computes data loss terms for RGB, normal, and depth outputs."""
     data_losses = []
@@ -210,10 +221,9 @@ def create_train_step(model: models.Model,
             losses['predicted_normals'] = predicted_normal_loss(
                 model, ray_history, config)
 
-        params = list(model.parameters())
         # print(params)
-        norms = torch.tensor([torch.norm(p.detach()) for p in params])
-        stats['weights_l2s'] = torch.norm(norms)
+        params = dict(model.named_parameters())
+        stats['weights_l2s'] = {k.replace('.', '/') : params[k].detach().norm() ** 2 for k in params}
 
         # calculate total loss
         loss = torch.sum(torch.stack(list(losses.values())))
@@ -223,10 +233,13 @@ def create_train_step(model: models.Model,
         # backprop
         loss.backward()
 
+        # import pdb
+        # pdb.set_trace()
+        # pdb.pm()
+
         # calculate average grad and stats
-        grads = torch.stack([p.grad.detach().mean() for p in params if p.grad is not None])
-        stats['grad_norms'] = torch.norm(grads)
-        stats['grad_maxes'] = torch.max(torch.abs(grads))
+        stats['grad_norms'] = {k.replace('.', '/') : params[k].grad.detach().norm() for k in params}
+        stats['grad_maxes'] = {k.replace('.', '/') : params[k].grad.detach().abs().max() for k in params}
 
         # Clip gradients
         if config.grad_max_val > 0:

@@ -79,7 +79,7 @@ def main(unused_argv):
     logfile = os.path.join(config.checkpoint_dir, 'output.log')
     print('Logging to ' + logfile)
     logging.basicConfig(
-        level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s",
+        level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=[logging.FileHandler(logfile), logging.StreamHandler()])
 
     # print the number of parameters of the model
@@ -151,6 +151,7 @@ def main(unused_argv):
                 stats_stacked = {k: fs[k][None, ...] for k in fs.keys()}
 
                 # Split every statistic that isn't a vector into a set of statistics.
+                print(stats_stacked)
                 stats_split = {}
                 for k, v in stats_stacked.items():
                     if v.ndim not in [1, 2] and v.shape[0] != len(stats_buffer):
