@@ -16,11 +16,14 @@
 
 import functools
 import os
+import sys
 import gc
 import time
 import numpy as np
 import torch
 import flatdict
+import logging.config
+from absl import flags
 
 from torch.utils.tensorboard import SummaryWriter
 from absl import app
@@ -33,8 +36,8 @@ from internal import train_utils
 from internal import utils
 from internal import vis
 
+FLAGS = flags.FLAGS
 configs.define_common_flags()
-
 TIME_PRECISION = 1000  # Internally represent integer times in milliseconds.
 
 
@@ -54,8 +57,6 @@ def main(unused_argv):
         optim=optimizer.state_dict(),
         lr_scheduler=lr_scheduler.state_dict(),
     )
-    num_params = sum(p.numel() for p in model.parameters())
-    print(f'Number of parameters being optimized: {num_params}')
 
     # create object for calculating metrics
     metric_harness = image.MetricHarness()
@@ -73,6 +74,17 @@ def main(unused_argv):
             lr_scheduler.load_state_dict(state['lr_scheduler'])
     else:
         utils.makedirs(config.checkpoint_dir)
+
+    # setup logging to file
+    logfile = os.path.join(config.checkpoint_dir, 'output.log')
+    print('Logging to ' + logfile)
+    logging.basicConfig(
+        level=logging.DEBUG, format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[logging.FileHandler(logfile), logging.StreamHandler()])
+
+    # print the number of parameters of the model
+    num_params = sum(p.numel() for p in model.parameters())
+    logging.info(f'Number of parameters being optimized: {num_params}')
 
     # Resume training at the step of the last checkpoint.
     init_step = state['step'] + 1
@@ -162,9 +174,8 @@ def main(unused_argv):
                     summary_writer.add_scalar(f'train_avg_{k}', v, step)
                 for k, v in max_stats.items():
                     summary_writer.add_scalar(f'train_max_{k}', v, step)
-                print(lr_scheduler.get_lr())
                 summary_writer.add_scalar('train_num_params', num_params, step)
-                summary_writer.add_scalar('train_learning_rate', *lr_scheduler.get_lr(), step)
+                summary_writer.add_scalar('train_learning_rate', *lr_scheduler.get_last_lr(), step)
                 summary_writer.add_scalar('train_steps_per_sec', steps_per_sec, step)
                 summary_writer.add_scalar('train_rays_per_sec', rays_per_sec, step)
                 summary_writer.add_scalar('train_avg_psnr_timed', avg_stats['psnr'],
@@ -179,9 +190,9 @@ def main(unused_argv):
                     for k, v in avg_stats.items()
                     if k.startswith('losses/')
                 }
-                print(f'{step:{precision}d}' + f'/{config.max_steps:d}: ' +
+                logging.info(f'{step:{precision}d}' + f'/{config.max_steps:d}: ' +
                     f'loss={avg_loss:0.5f}, ' + f'psnr={avg_psnr:6.3f}, ' +
-                    f'lr={lr_scheduler.get_lr()[0]:0.2e} | ' +
+                    f'lr={lr_scheduler.get_last_lr()[0]:0.2e} | ' +
                     ', '.join([f'{k}={s}' for k, s in str_losses.items()]) +
                     f', {rays_per_sec:0.0f} r/s')
 
@@ -215,21 +226,21 @@ def main(unused_argv):
                 num_rays = np.prod(np.array(test_case.rays.directions.shape[:-1]))
                 rays_per_sec = num_rays / eval_time
                 summary_writer.scalar('test_rays_per_sec', rays_per_sec, step)
-                print(f'Eval {step}: {eval_time:0.3f}s., {rays_per_sec:0.0f} rays/sec')
+                logging.info(f'Eval {step}: {eval_time:0.3f}s., {rays_per_sec:0.0f} rays/sec')
 
                 if config.compute_eval_metrics:
                     metric_start_time = time.time()
                     metric = metric_harness(rendering['rgb'], test_case.rgb)
-                    print(f'Metrics computed in {(time.time() - metric_start_time):0.3f}s')
+                    logging.info(f'Metrics computed in {(time.time() - metric_start_time):0.3f}s')
                     for name, val in metric.items():
                         if not np.isnan(val):
-                            print(f'{name} = {val:.4f}')
+                            logging.info(f'{name} = {val:.4f}')
                             summary_writer.scalar(
                                 'train_metrics/' + name, val, step)
 
                 vis_start_time = time.time()
                 vis_suite = vis.visualize_suite(rendering, test_case.rays)
-                print(f'Visualized in {(time.time() - vis_start_time):0.3f}s')
+                logging.info(f'Visualized in {(time.time() - vis_start_time):0.3f}s')
                 summary_writer.image('test_true_color', test_case.rgb, step)
                 if config.compute_normal_metrics:
                     summary_writer.image('test_true_normals',
@@ -250,4 +261,6 @@ def main(unused_argv):
 
 if __name__ == '__main__':
     with gin.config_scope('train'):
-        app.run(main)
+        # app.run(main)
+        FLAGS(sys.argv)
+        main(sys.argv)
