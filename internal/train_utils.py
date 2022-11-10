@@ -230,9 +230,9 @@ def create_train_step(model: models.Model,
 
         # Clip gradients
         if config.grad_max_val > 0:
-            torch.nn.utils.clip_grad_value(model.parameters(), clip_value=config.grad_max_value)
+            torch.nn.utils.clip_grad_value_(model.parameters(), clip_value=config.grad_max_value)
         if config.grad_max_norm > 0:
-            torch.nn.utils.clip_grad_norm(model.parameters(), max_norm=config.grad_max_norm)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=config.grad_max_norm)
         #TODO: set nan grads to 0
         # grad = jax.tree_util.tree_map(jnp.nan_to_num, grad)
 
