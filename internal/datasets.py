@@ -328,7 +328,7 @@ class Dataset(threading.Thread, metaclass=abc.ABCMeta):
       batch: dict, has 'rgb' and 'rays'.
     """
     return self._queue.get()
-  
+
   def peek(self):
     """Peek at the next training batch or test example without dequeuing it.
 

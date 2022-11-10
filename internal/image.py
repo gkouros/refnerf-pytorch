@@ -16,11 +16,15 @@
 
 import types
 from typing import Optional, Union
+import torch
 
 import dm_pix
 import numpy as np
+from numpy import array as tensor
 
-_Array = Union[np.ndarray, torch.ndarray]
+
+_Array = Union[np.ndarray, torch.tensor]
+np.tensor = np.array
 
 
 def mse_to_psnr(mse):
@@ -48,9 +52,9 @@ def linear_to_srgb(linear: _Array,
                    xnp: types.ModuleType = torch) -> _Array:
   """Assumes `linear` is in [0, 1], see https://en.wikipedia.org/wiki/SRGB."""
   if eps is None:
-    eps = xnp.finfo(xnp.float32).eps
+    eps = xnp.tensor(xnp.finfo(xnp.float32).eps)
   srgb0 = 323 / 25 * linear
-  srgb1 = (211 * xnp.max(eps, linear)**(5 / 12) - 11) / 200
+  srgb1 = (211 * xnp.maximum(eps, linear)**(5 / 12) - 11) / 200
   return xnp.where(linear <= 0.0031308, srgb0, srgb1)
 
 
@@ -59,9 +63,9 @@ def srgb_to_linear(srgb: _Array,
                    xnp: types.ModuleType = torch) -> _Array:
   """Assumes `srgb` is in [0, 1], see https://en.wikipedia.org/wiki/SRGB."""
   if eps is None:
-    eps = xnp.finfo(xnp.float32).eps
+    eps = xnp.tensor(xnp.finfo(xnp.float32).eps)
   linear0 = 25 / 323 * srgb
-  linear1 = xnp.max(eps, ((200 * srgb + 11) / (211)))**(12 / 5)
+  linear1 = xnp.maximum(eps, ((200 * srgb + 11) / (211)))**(12 / 5)
   return xnp.where(srgb <= 0.04045, linear0, linear1)
 
 

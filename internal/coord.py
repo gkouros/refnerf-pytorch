@@ -13,6 +13,7 @@
 # limitations under the License.
 """Tools for manipulating coordinate spaces and distances along rays."""
 
+import torch
 from internal import math
 
 
@@ -54,7 +55,7 @@ def inv_contract(z):
 #   if (len(mean.shape) + 1) != len(cov.shape):
 #     raise ValueError('cov must be non-diagonal')
 #   fn_mean, lin_fn = jax.linearize(fn, mean)  #TODO: HOW THE FUCK DO I FIX THIS?
-  
+
 #   fn_cov = torch.vmap(lin_fn, -1, -2)(torch.vmap(lin_fn, -1, -2)(cov))
 #   return fn_mean, fn_cov
 

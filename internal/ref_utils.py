@@ -37,14 +37,14 @@ def reflect(viewdirs, normals):
         normals * viewdirs, dim=-1, keepdims=True) * normals - viewdirs
 
 
-def l2_normalize(x, eps=torch.finfo(torch.float32).eps):
+def l2_normalize(x, eps=torch.tensor(torch.finfo(torch.float32).eps)):
     """Normalize x to unit length along last axis."""
-    return x / torch.sqrt(torch.max(torch.sum(x**2, dim=-1, keepdims=True), eps))
+    return x / torch.sqrt(torch.maximum(torch.sum(x**2, dim=-1, keepdims=True), eps))
 
 
 def compute_weighted_mae(weights, normals, normals_gt):
     """Compute weighted mean angular error, assuming normals are unit length."""
-    one_eps = 1 - torch.finfo(torch.float32).eps
+    one_eps = torch.tensor(1 - torch.finfo(torch.float32).eps)
     return (weights * torch.arccos(
         torch.clip((normals * normals_gt).sum(-1), -one_eps,
                    one_eps))).sum() / weights.sum() * 180.0 / torch.pi
@@ -120,7 +120,7 @@ def generate_ide_fn(deg_view):
     # Create a matrix corresponding to ml_array holding all coefficients, which,
     # when multiplied (from the right) by the z coordinate Vandermonde matrix,
     # results in the z component of the encoding.
-    mat = np.zeros((l_max + 1, ml_array.shape[1]))
+    mat = torch.zeros((l_max + 1, ml_array.shape[1]))
     for i, (m, l) in enumerate(ml_array.T):
         for k in range(l - m + 1):
             mat[k, i] = sph_harm_coeff(l, m, k)
@@ -152,8 +152,8 @@ def generate_ide_fn(deg_view):
 
         # Apply attenuation function using the von Mises-Fisher distribution
         # concentration parameter, kappa.
-        sigma = 0.5 * ml_array[1, :] * (ml_array[1, :] + 1)
-        ide = sph_harms * math.exp(-sigma * kappa_inv)
+        sigma = torch.tensor(0.5 * ml_array[1, :] * (ml_array[1, :] + 1), dtype=torch.float32)
+        ide = sph_harms * torch.exp(-sigma * kappa_inv)
 
         # Split into real and imaginary parts and return
         return torch.cat([torch.real(ide), torch.imag(ide)], dim=-1)

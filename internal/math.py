@@ -15,6 +15,7 @@
 """Mathy utility functions."""
 
 import torch
+import numpy as np
 
 
 def matmul(a, b):
@@ -24,7 +25,7 @@ def matmul(a, b):
 
 def safe_trig_helper(x, fn, t=100 * torch.pi):
   """Helper function used by safe_cos/safe_sin: mods x before sin()/cos()."""
-  return torch(torch.where(torch.abs(x) < t, x, x % t))
+  return fn(torch.where(torch.abs(x) < t, x, x % t))
 
 
 def safe_cos(x):
@@ -58,9 +59,9 @@ def log_lerp(t, v0, v1):
   """Interpolate log-linearly from `v0` (t=0) to `v1` (t=1)."""
   if v0 <= 0 or v1 <= 0:
     raise ValueError(f'Interpolants {v0} and {v1} must be positive.')
-  lv0 = torch.log(v0)
-  lv1 = torch.log(v1)
-  return torch.exp(torch.clip(t, 0, 1) * (lv1 - lv0) + lv0)
+  lv0 = np.log(v0)
+  lv1 = np.log(v1)
+  return np.exp(np.clip(t, 0, 1) * (lv1 - lv0) + lv0)
 
 
 def learning_rate_decay(step,
@@ -91,8 +92,8 @@ def learning_rate_decay(step,
   """
   if lr_delay_steps > 0:
     # A kind of reverse cosine decay.
-    delay_rate = lr_delay_mult + (1 - lr_delay_mult) * torch.sin(
-        0.5 * torch.pi * torch.clip(step / lr_delay_steps, 0, 1))
+    delay_rate = lr_delay_mult + (1 - lr_delay_mult) * np.sin(
+        0.5 * np.pi * np.clip(step / lr_delay_steps, 0, 1))
   else:
     delay_rate = 1.
   return delay_rate * log_lerp(step / max_steps, lr_init, lr_final)
@@ -115,8 +116,10 @@ def sorted_interp(x, xp, fp):
   def find_interval(x):
     # Grab the value where `mask` switches from True to False, and vice versa.
     # This approach takes advantage of the fact that `x` is sorted.
-    x0 = torch.max(torch.where(mask, x[..., None], x[..., :1, None]), -2)
-    x1 = torch.min(torch.where(~mask, x[..., None], x[..., -1:, None]), -2)
+    # print(torch.where(mask, x[..., None], x[..., :1, None]))
+    # print(x[..., None].shape, x[..., :1, None].shape, torch.where(mask, x[..., None], x[..., :1, None]).shape)
+    x0 = torch.max(torch.where(mask, x[..., None], x[..., :1, None]), dim=-2).values
+    x1 = torch.min(torch.where(~mask, x[..., None], x[..., -1:, None]), dim=-2).values
     return x0, x1
 
   fp0, fp1 = find_interval(fp)

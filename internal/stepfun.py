@@ -22,8 +22,8 @@ All input/output step functions are assumed to be aligned along the last axis.
 values that *integrate* to <= 1.
 """
 
+import torch
 from internal import math
-
 
 def searchsorted(a, v):
     """Find indices where v should be inserted into a to maintain order.
@@ -144,7 +144,7 @@ def integrate_weights(w):
     Returns:
       cw0: Tensor, the integral of w, where cw0[..., 0] = 0 and cw0[..., -1] = 1
     """
-    cw = torch.minimum(1, torch.cumsum(w[..., :-1], dim=-1))
+    cw = torch.minimum(torch.tensor(1), torch.cumsum(w[..., :-1], dim=-1))
     shape = cw.shape[:-1] + (1,)
     # Ensure that the CDF starts with exactly 0 and ends with exactly 1.
     cw0 = torch.cat(
@@ -247,8 +247,8 @@ def sample_intervals(
     # around the first/last sampled center. We clamp to the limits of the input
     # domain, provided by the caller.
     minval, maxval = domain
-    first = torch.maximum(minval, 2 * centers[..., :1] - mid[..., :1])
-    last = torch.minimum(maxval, 2 * centers[..., -1:] - mid[..., -1:])
+    first = torch.maximum(torch.tensor(minval), 2 * centers[..., :1] - mid[..., :1])
+    last = torch.minimum(torch.tensor(maxval), 2 * centers[..., -1:] - mid[..., -1:])
     t_samples = torch.cat([first, mid, last], dim=-1)
     return t_samples
 
@@ -290,7 +290,7 @@ def weighted_percentile(t, w, ps):
     """Compute the weighted percentiles of a step function. w's must sum to 1."""
     cw = integrate_weights(w)
     # We want to interpolate into the integrated weights according to `ps`.
-    def fn(cw_i, t_i): 
+    def fn(cw_i, t_i):
         return torch.interp(torch.array(ps) / 100, cw_i, t_i)
     # Vmap fn to an arbitrary number of leading dimensions.
     cw_mat = cw.reshape([-1, cw.shape[-1]])

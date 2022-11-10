@@ -42,9 +42,8 @@ def compute_data_loss(batch, renderings, rays, config):
     lossmult = torch.broadcast_to(lossmult, batch.rgb[..., :3].shape)
     if config.disable_multiscale_loss:
         lossmult = torch.ones_like(lossmult)
-
     for rendering in renderings:
-        resid_sq = (rendering['rgb'] - batch.rgb[..., :3])**2
+        resid_sq = (rendering['rgb'] - torch.tensor(batch.rgb[..., :3]))**2
         denom = lossmult.sum()
         stats['mses'].append((lossmult * resid_sq).sum() / denom)
 
@@ -78,17 +77,18 @@ def compute_data_loss(batch, renderings, rays, config):
 
             stats['normal_maes'].append(normal_mae)
 
-    data_losses = torch.array(data_losses)
+    data_losses = torch.tensor(data_losses)
     loss = (
         config.data_coarse_loss_mult * torch.sum(data_losses[:-1]) +
         config.data_loss_mult * data_losses[-1])
-    stats = {k: torch.array(stats[k]) for k in stats}
+    stats = {k: torch.tensor(stats[k]) for k in stats}
     return loss, stats
 
 
 def orientation_loss(rays, model, ray_history, config):
     """Computes the orientation loss regularizer defined in ref-NeRF."""
     total_loss = 0.
+    zero = torch.tensor(0.0, dtype=torch.float32)
     for i, ray_results in enumerate(ray_history):
         w = ray_results['weights']
         n = ray_results[config.orientation_loss_target]
@@ -98,7 +98,7 @@ def orientation_loss(rays, model, ray_history, config):
         # Negate viewdirs to represent normalized vectors from point to camera.
         v = -1. * rays.viewdirs
         n_dot_v = (n * v[..., None, :]).sum(axis=-1)
-        loss = torch.mean((w * torch.minimum(0.0, n_dot_v)**2).sum(axis=-1))
+        loss = torch.mean((w * torch.minimum(zero, n_dot_v)**2).sum(axis=-1))
         if i < model.num_levels - 1:
             total_loss += config.orientation_coarse_loss_mult * loss
         else:
@@ -169,6 +169,16 @@ def create_train_step(model: models.Model,
         if config.cast_rays_in_train_step:
             rays = camera_utils.cast_ray_batch(
                 cameras, rays, camtype, xnp=torch)
+        else:
+            rays.origins = torch.tensor(rays.origins, dtype=torch.float32)
+            rays.directions = torch.tensor(rays.directions, dtype=torch.float32)
+            rays.viewdirs = torch.tensor(rays.viewdirs, dtype=torch.float32)
+            rays.radii = torch.tensor(rays.radii, dtype=torch.float32)
+            rays.imageplane = torch.tensor(rays.imageplane, dtype=torch.float32)
+            rays.lossmult = torch.tensor(rays.lossmult, dtype=torch.float32)
+            rays.near = torch.tensor(rays.near, dtype=torch.float32)
+            rays.far = torch.tensor(rays.far, dtype=torch.float32)
+            rays.cam_idx = torch.tensor(rays.cam_idx, dtype=torch.float32)
 
         # Indicates whether we need to compute output normal or depth maps in 2D.
         compute_extras = (
@@ -177,34 +187,33 @@ def create_train_step(model: models.Model,
         # clear gradients
         optimizer.zero_grad()
 
-        renderings, ray_history = model.apply(
-            variables,
-            key if config.randomized else None,
+        renderings, ray_history = model(
             rays,
             train_frac=train_frac,
             compute_extras=compute_extras)
 
         losses = {}
 
-        data_loss, stats = compute_data_loss(
-            batch, renderings, rays, config)
+        # calculate photometric error
+        data_loss, stats = compute_data_loss(batch, renderings, rays, config)
         losses['data'] = data_loss
 
+        # calculate normals orientation loss
         if (config.orientation_coarse_loss_mult > 0 or
                 config.orientation_loss_mult > 0):
             losses['orientation'] = orientation_loss(
                 rays, model, ray_history, config)
 
+        # calculate predicted normal loss
         if (config.predicted_normal_coarse_loss_mult > 0 or
                 config.predicted_normal_loss_mult > 0):
             losses['predicted_normals'] = predicted_normal_loss(
                 model, ray_history, config)
-        # TODO:
-        # stats['weight_l2s'] = summarize_tree(variables['params'], tree_norm_sq)
+
         stats['weights_l2s'] = torch.norm(model.parameters())
 
         # calculate total loss
-        stats['loss'] = torch.sum(torch.array(list(losses.values())))
+        stats['loss'] = torch.sum(torch.tensor(list(losses.values())))
         stats['losses'] = losses
 
         # backprop
@@ -247,7 +256,7 @@ def create_train_step(model: models.Model,
 
 def create_optimizer(
         config: configs.Config,
-        variables: Dict) -> Tuple[torch.optim.Optimizer, torch.optim.LambdaLR]:
+        params: Dict) -> Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR]:
     """Creates optimizer for model training."""
     adam_kwargs = {
         'betas': (config.adam_beta1, config.adam_beta2),
@@ -266,7 +275,7 @@ def create_optimizer(
             lr_final=lr_final,
             **lr_kwargs)
 
-    optimizer = torch.optim.Adam(params=variables, **adam_kwargs)
+    optimizer = torch.optim.Adam(params=params, **adam_kwargs)
     lr_fn_main = get_lr_fn(config.lr_init, config.lr_final)
     lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_fn_main)
 
@@ -287,18 +296,13 @@ def setup_model(
         config: configs.Config,
         dataset: Optional[datasets.Dataset] = None,
     ):
-    # ) -> Tuple[models.Model, TrainState, Callable[
-    #     [Dict, utils.Rays],
-    #     MutableMapping[Text, Any]], Callable[
-    #         [np.array, TrainState, utils.Batch, Optional[Tuple[Any, ...]], float],
-    #         Tuple[TrainState, Dict[Text, Any], np.array]], Callable[[int], float]]:
     """Creates NeRF model, optimizer, and pmap-ed train/render functions."""
 
     dummy_rays = utils.dummy_rays()
-    model, variables = models.construct_model(dummy_rays, config)
+    model = models.construct_model(dummy_rays, config)
 
-    optimizer, lr_scheduler = create_optimizer(config, variables)
+    optimizer, lr_scheduler = create_optimizer(config, model.parameters())
     render_eval_fn = create_render_fn(model)
     train_step = create_train_step(model, config, dataset=dataset)
 
-    return model, variables, optimizer, lr_scheduler, render_eval_fn, train_step
+    return model, optimizer, lr_scheduler, render_eval_fn, train_step

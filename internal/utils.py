@@ -24,7 +24,7 @@ import torch
 from dataclasses import dataclass
 
 
-_Array = Union[np.ndarray, torch.ndarray]
+_Array = Union[np.ndarray, torch.tensor]
 
 
 @dataclass
@@ -63,7 +63,7 @@ def dummy_rays() -> Rays:
       lossmult=data_fn(1),
       near=data_fn(1),
       far=data_fn(1),
-      cam_idx=data_fn(1).astype(torch.int32))
+      cam_idx=data_fn(1).type(torch.int32))
 
 
 @dataclass
@@ -133,7 +133,7 @@ def save_img_u8(img, pth, mask=None):
       mask_np = 255 * (mask_np - mask_np.min()) / (mask_np.max() - mask_np.min())
       img_np = (255 - mask_np) + img_np
       img_np = np.array((255 * (img_np - img_np.min()) / (img_np.max() - img_np.min())), dtype=np.uint8)
-    
+
     Image.fromarray(img_np).save(f, 'PNG')
 
 def save_img_f32(depthmap, pth):

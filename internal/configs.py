@@ -20,7 +20,9 @@ from typing import Any, Callable, Optional, Tuple
 from absl import flags
 import gin
 from internal import utils
+import numpy as np
 
+gin.add_config_file_search_path('experimental/users/barron/mipnerf360/')
 
 @gin.configurable()
 @dataclasses.dataclass

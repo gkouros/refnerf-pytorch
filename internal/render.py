@@ -14,6 +14,7 @@
 
 """Helper functions for shooting and rendering rays."""
 
+import torch
 from internal import stepfun
 
 
@@ -21,7 +22,8 @@ def lift_gaussian(d, t_mean, t_var, r_var, diag):
   """Lift a Gaussian defined along a ray to 3D coordinates."""
   mean = d[..., None, :] * t_mean[..., None]
 
-  d_mag_sq = torch.maximum(1e-10, torch.sum(d**2, dim=-1, keepdims=True))
+  eps = torch.tensor(1e-10)
+  d_mag_sq = torch.maximum(eps, torch.sum(d**2, dim=-1, keepdims=True))
 
   if diag:
     d_outer_diag = d**2
@@ -62,7 +64,7 @@ def conical_frustum_to_gaussian(d, t0, t1, base_radius, diag, stable=True):
     # Equation 7 in the paper (https://arxiv.org/abs/2103.13415).
     mu = (t0 + t1) / 2  # The average of the two `t` values.
     hw = (t1 - t0) / 2  # The half-width of the two `t` values.
-    eps = torch.finfo(torch.float32).eps
+    eps = torch.tensor(torch.finfo(torch.float32).eps)
     t_mean = mu + (2 * mu * hw**2) / torch.maximum(eps, 3 * mu**2 + hw**2)
     denom = torch.maximum(eps, 3 * mu**2 + hw**2)
     t_var = (hw**2) / 3 - (4 / 15) * hw**4 * (12 * mu**2 - hw**2) / denom**2
@@ -168,11 +170,11 @@ def volumetric_rendering(rgbs,
     rendering: a dict containing an rgb image of size [batch_size, 3], and other
       visualizations if compute_extras=True.
   """
-  eps = torch.finfo(torch.float32).eps
+  eps = torch.tensor(torch.finfo(torch.float32).eps)
   rendering = {}
 
   acc = weights.sum(dim=-1)
-  bg_w = torch.maximum(0, 1 - acc[..., None])  # The weight of the background.
+  bg_w = torch.maximum(torch.tensor(0), 1 - acc[..., None])  # The weight of the background.
   rgb = (weights[..., None] * rgbs).sum(dim=-2) + bg_w * bg_rgbs
   rendering['rgb'] = rgb
 
@@ -184,7 +186,7 @@ def volumetric_rendering(rgbs,
         if v is not None:
           rendering[k] = (weights[..., None] * v).sum(dim=-2)
 
-    expectation = lambda x: (weights * x).sum(dim=-1) / torch.max(eps, acc)
+    expectation = lambda x: (weights * x).sum(dim=-1) / torch.max(eps, acc).values
     t_mids = 0.5 * (tdist[..., :-1] + tdist[..., 1:])
     # For numerical stability this expectation is computing using log-distance.
     rendering['distance_mean'] = (
