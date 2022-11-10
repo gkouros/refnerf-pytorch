@@ -77,10 +77,10 @@ def compute_data_loss(batch, renderings, rays, config):
 
             stats['normal_maes'].append(normal_mae)
 
-    data_losses = torch.tensor(data_losses)
-    loss = (
-        config.data_coarse_loss_mult * torch.sum(data_losses[:-1]) +
-        config.data_loss_mult * data_losses[-1])
+    data_losses = torch.stack(data_losses)
+    loss = \
+        config.data_coarse_loss_mult * torch.sum(data_losses[:-1]) + \
+        config.data_loss_mult * data_losses[-1]
     stats = {k: torch.tensor(stats[k]) for k in stats}
     return loss, stats
 
@@ -210,27 +210,29 @@ def create_train_step(model: models.Model,
             losses['predicted_normals'] = predicted_normal_loss(
                 model, ray_history, config)
 
-        stats['weights_l2s'] = torch.norm(model.parameters())
+        params = list(model.parameters())
+        # print(params)
+        norms = torch.tensor([torch.norm(p.detach()) for p in params])
+        stats['weights_l2s'] = torch.norm(norms)
 
         # calculate total loss
-        stats['loss'] = torch.sum(torch.tensor(list(losses.values())))
+        loss = torch.sum(torch.stack(list(losses.values())))
+        stats['loss'] = loss
         stats['losses'] = losses
 
         # backprop
-        stats['loss'].backward()
+        loss.backward()
 
         # calculate average grad and stats
-        grads = [p.grad for p in model.parameters() if p.grad is not None]
-        grad = torch.mean(grads)
-        stats = torch.mean(stats, axis=0)
+        grads = torch.stack([p.grad.detach().mean() for p in params if p.grad is not None])
         stats['grad_norms'] = torch.norm(grads)
         stats['grad_maxes'] = torch.max(torch.abs(grads))
 
         # Clip gradients
         if config.grad_max_val > 0:
-            torch.nn.utils.clip_grad_value(model.parameters(), clip_value=args.config.grad_max_value)
+            torch.nn.utils.clip_grad_value(model.parameters(), clip_value=config.grad_max_value)
         if config.grad_max_norm > 0:
-            torch.nn.utils.clip_grad_norm(model.parameters(), max_norm=args.config.grad_max_norm)
+            torch.nn.utils.clip_grad_norm(model.parameters(), max_norm=config.grad_max_norm)
         #TODO: set nan grads to 0
         # grad = jax.tree_util.tree_map(jnp.nan_to_num, grad)
 
@@ -240,7 +242,7 @@ def create_train_step(model: models.Model,
         # update learning rate
         lr_scheduler.step()
 
-        #TODO: difference between previous and current state
+        #TODO: difference between previous and current state - Redundant?
         # stats['opt_update_norms'] = summarize_tree(opt_delta, tree_norm)
         # stats['opt_update_maxes'] = summarize_tree(opt_delta, tree_abs_max)
 

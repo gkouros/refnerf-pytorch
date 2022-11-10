@@ -29,12 +29,12 @@ np.tensor = np.array
 
 def mse_to_psnr(mse):
   """Compute PSNR given an MSE (we assume the maximum pixel value is 1)."""
-  return -10. / torch.log(10.) * torch.log(mse)
+  return -10. / torch.log(torch.tensor(10.)) * torch.log(mse)
 
 
 def psnr_to_mse(psnr):
   """Compute MSE given a PSNR (we assume the maximum pixel value is 1)."""
-  return torch.exp(-0.1 * torch.log(10.) * psnr)
+  return torch.exp(-0.1 * torch.log(torch.tensor(10.)) * psnr)
 
 
 def ssim_to_dssim(ssim):
