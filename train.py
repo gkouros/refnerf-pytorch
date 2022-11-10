@@ -20,6 +20,7 @@ import gc
 import time
 import numpy as np
 import torch
+import flatdict
 
 from torch.utils.tensorboard import SummaryWriter
 from absl import app
@@ -133,10 +134,9 @@ def main(unused_argv):
                 total_steps += config.print_every
                 approx_total_time = int(round(step * total_time / total_steps))
 
-                # Transpose and stack stats_buffer along axis 0.
-                # fs = [flax.traverse_util.flatten_dict(s, sep='/') for s in stats_buffer]  #TODO:
-                fs = stats_buffer
-                stats_stacked = {k: np.stack([f[k] for f in fs]) for k in fs[0].keys()}
+                # Stack stats_buffer along axis 0.
+                fs = dict(flatdict.FlatDict(stats_buffer[0], delimiter='/'))
+                stats_stacked = {k: fs[k][None, ...] for k in fs.keys()}
 
                 # Split every statistic that isn't a vector into a set of statistics.
                 stats_split = {}
@@ -151,25 +151,25 @@ def main(unused_argv):
 
                 # Summarize the entire histogram of each statistic.
                 for k, v in stats_split.items():
-                    summary_writer.histogram('train_' + k, v, step)
+                    summary_writer.add_histogram('train_' + k, v, step)
 
                 # Take the mean and max of each statistic since the last summary.
-                avg_stats = {k: jnp.mean(v) for k, v in stats_split.items()}
-                max_stats = {k: jnp.max(v) for k, v in stats_split.items()}
+                avg_stats = {k: torch.mean(v) for k, v in stats_split.items()}
+                max_stats = {k: torch.max(v) for k, v in stats_split.items()}
 
                 # Summarize the mean and max of each statistic.
                 for k, v in avg_stats.items():
-                    summary_writer.scalar(f'train_avg_{k}', v, step)
+                    summary_writer.add_scalar(f'train_avg_{k}', v, step)
                 for k, v in max_stats.items():
-                    summary_writer.scalar(f'train_max_{k}', v, step)
-
-                summary_writer.scalar('train_num_params', num_params, step)
-                summary_writer.scalar('train_learning_rate', learning_rate, step)
-                summary_writer.scalar('train_steps_per_sec', steps_per_sec, step)
-                summary_writer.scalar('train_rays_per_sec', rays_per_sec, step)
-                summary_writer.scalar('train_avg_psnr_timed', avg_stats['psnr'],
+                    summary_writer.add_scalar(f'train_max_{k}', v, step)
+                print(lr_scheduler.get_lr())
+                summary_writer.add_scalar('train_num_params', num_params, step)
+                summary_writer.add_scalar('train_learning_rate', *lr_scheduler.get_lr(), step)
+                summary_writer.add_scalar('train_steps_per_sec', steps_per_sec, step)
+                summary_writer.add_scalar('train_rays_per_sec', rays_per_sec, step)
+                summary_writer.add_scalar('train_avg_psnr_timed', avg_stats['psnr'],
                                     total_time // TIME_PRECISION)
-                summary_writer.scalar('train_avg_psnr_timed_approx', avg_stats['psnr'],
+                summary_writer.add_scalar('train_avg_psnr_timed_approx', avg_stats['psnr'],
                                     approx_total_time // TIME_PRECISION)
                 precision = int(np.ceil(np.log10(config.max_steps))) + 1
                 avg_loss = avg_stats['loss']
@@ -181,7 +181,7 @@ def main(unused_argv):
                 }
                 print(f'{step:{precision}d}' + f'/{config.max_steps:d}: ' +
                     f'loss={avg_loss:0.5f}, ' + f'psnr={avg_psnr:6.3f}, ' +
-                    f'lr={learning_rate:0.2e} | ' +
+                    f'lr={lr_scheduler.get_lr()[0]:0.2e} | ' +
                     ', '.join([f'{k}={s}' for k, s in str_losses.items()]) +
                     f', {rays_per_sec:0.0f} r/s')
 
