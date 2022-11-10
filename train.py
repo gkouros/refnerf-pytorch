@@ -15,11 +15,15 @@
 """Training script."""
 
 import functools
+import os
 import gc
 import time
+import numpy as np
 import torch
+
+from torch.utils.tensorboard import SummaryWriter
 from absl import app
-import gin
+import gin.torch
 from internal import configs
 from internal import datasets
 from internal import image
@@ -27,7 +31,6 @@ from internal import models
 from internal import train_utils
 from internal import utils
 from internal import vis
-import numpy as np
 
 configs.define_common_flags()
 
@@ -43,14 +46,14 @@ def main(unused_argv):
 
     # create model, state, rendering evaluation function, training step, and lr scheduler
     setup = train_utils.setup_model(config, dataset=dataset)
-    model, variables, optimizer, lr_scheduler, render_eval_fn, train_step = setup
-    state = {
-        'step': 1,
-        'model': model.state_dict(),
-        'optim': optimizer.state_dict(),
-        'lr_scheduler': lr_scheduler.state_dict(),
-    }
-    num_params = np.prod(variables.shape)
+    model, optimizer, lr_scheduler, render_eval_fn, train_step = setup
+    state = dict(
+        step=1,
+        model=model.state_dict(),
+        optim=optimizer.state_dict(),
+        lr_scheduler=lr_scheduler.state_dict(),
+    )
+    num_params = sum(p.numel() for p in model.parameters())
     print(f'Number of parameters being optimized: {num_params}')
 
     # create object for calculating metrics
@@ -58,18 +61,23 @@ def main(unused_argv):
 
     # load saved checkpoint or create checkpoint dir if not there
     if utils.isdir(config.checkpoint_dir):
-        state = torch.load(config.checkpoint_dir)
-        model.load_state_dict(state['model'])
-        optimizer.load_state_dict(state['optimizer'])
-        lr_scheduler.load_state_dict(state['lr_scheduler'])
+        files = sorted([f for f in os.listdir(config.checkpoint_dir)
+                 if f.startswith('checkpoint')], key=lambda x: x.split('_')[-1])
+        # if there are checkpoints in the dir, load the latest checkpoint
+        if files:
+            checkpoint_name = files[-1]
+            state = torch.load(os.path.join(config.checkpoint_dir, checkpoint_name))
+            model.load_state_dict(state['model'])
+            optimizer.load_state_dict(state['optimizer'])
+            lr_scheduler.load_state_dict(state['lr_scheduler'])
     else:
         utils.makedirs(config.checkpoint_dir)
 
     # Resume training at the step of the last checkpoint.
-    init_step = state.step + 1
+    init_step = state['step'] + 1
 
     # setup tensorboard for logging
-    summary_writer = tensorboard.SummaryWriter(config.checkpoint_dir)
+    summary_writer = SummaryWriter(config.checkpoint_dir)
 
     # Prefetch_buffer_size = 3 x batch_size.
     # gc.disable()  # Disable automatic garbage collection for efficiency.
@@ -183,12 +191,12 @@ def main(unused_argv):
             # save a checkpoint on the first epoch and every Nth epoch
             if step == 1 or step % config.checkpoint_every == 0:
                 # save checkpoint
-                torch.save({
-                    'step': step,
-                    'model': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                    'lr_scheduler': lr_scheduler.state_dict(),
-                }, path=os.path.join(config.checkpoint_dir, f'checkpoint_{step}'))
+                state = dict(
+                    step=step,
+                    model=model.state_dict(),
+                    optimizer=optimizer.state_dict(),
+                    lr_scheduler=lr_scheduler.state_dict())
+                torch.save(state, path=os.path.join(config.checkpoint_dir, f'checkpoint_{step}'))
 
             # Test-set evaluation.
             if config.train_render_every > 0 and step % config.train_render_every == 0:
@@ -196,10 +204,10 @@ def main(unused_argv):
                 # here on purpose so that the visualization matches what happened in
                 # training.
                 eval_start_time = time.time()
-                eval_variables = state.params
+                eval_params = model.parameters()
                 test_case = next(test_dataset)
                 rendering = models.render_image(
-                    functools.partial(render_eval_fn, eval_variables, train_frac),
+                    functools.partial(render_eval_fn, eval_params, train_frac),
                     test_case.rays, config)
 
                 # Log eval summaries
@@ -231,13 +239,13 @@ def main(unused_argv):
 
         # save last checkpoint if it wasn't already saved
         if config.max_steps % config.checkpoint_every != 0:
-            # TODO: use pytorch based checkpointing
-                torch.save({
-                    'step': config.max_steps,
-                    'model': model.state_dict(),
-                    'optimizer': optimizer.state_dict(),
-                    'lr_scheduler': lr_scheduler.state_dict(),
-                }, path=os.path.join(config.checkpoint_dir, f'checkpoint_{config.max_steps}'))
+            state = dict(
+                step=config.max_steps,
+                model=model.state_dict(),
+                optimizer=optimizer.state_dict(),
+                lr_scheduler=lr_scheduler.state_dict())
+            torch.save(state, path=os.path.join(
+                config.checkpoint_dir, f'checkpoint_{config.max_steps}'))
 
 
 if __name__ == '__main__':
