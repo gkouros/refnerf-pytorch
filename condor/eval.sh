@@ -14,10 +14,19 @@ conda activate multinerf
 DIR=/users/visics/gkouros/projects/nerf-repos/refnerf-pytorch/
 cd ${DIR}
 
-TF_FORCE_GPU_ALLOW_GROWTH='true' python3 eval.py \
-  --gin_configs=$CONFIG \
-  --gin_bindings="Config.data_dir = '${DATA_DIR}'" \
-  --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
+ENABLE_PRED_ROUGHNESS=True
+DEG_VIEW=5
+BATCH_SIZE=1024
+RENDER_CHUNK_SIZE=1024
+
+XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 eval.py \
+  --gin_configs="${DIR}/logs/$NAME/$EXP/config.gin" \
+  --gin_bindings="Config.data_dir = '${DIR}/data/$NAME'" \
+  --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$NAME/$EXP'" \
+  --gin_bindings="Config.batch_size = $BATCH_SIZE" \
+  --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE" \
+  --gin_bindings="NerfMLP.deg_view = $DEG_VIEW" \
+  --gin_bindings="NerfMLP.enable_pred_roughness = $ENABLE_PRED_ROUGHNESS" \
   --logtostderr
 
 conda deactivate

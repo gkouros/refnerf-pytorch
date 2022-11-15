@@ -16,20 +16,28 @@ cd ${DIR}
 
 ENABLE_PRED_ROUGHNESS=True
 DEG_VIEW=5
-BATCH_SIZE=4
-RENDER_CHUNK_SIZE=1
+BATCH_SIZE=8192
+RENDER_CHUNK_SIZE=8192
+MAX_STEPS=1000000
+
+if [[ "$CONFIG" == *"llff"* ]]; then
+  RENDER_PATH=True
+else
+  RENDER_PATH=False
+fi
 
 # If job gets evicted reload generated config file not original that might have been modified
-if [ -f "${DIR}/logs/$1/$2/config.gin" ]; then
-  CONFIG_PATH="${DIR}/logs/$1/$2/config.gin"
+if [ -f "${DIR}/logs/$NAME/$EXP/config.gin" ]; then
+  CONFIG_PATH="${DIR}/logs/$NAME/$EXP/config.gin"
 else
   CONFIG_PATH="$CONFIG"
 fi
 
 XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 train.py \
   --gin_configs="$CONFIG_PATH" \
-  --gin_bindings="Config.data_dir = '${DIR}/data/$1'" \
-  --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
+  --gin_bindings="Config.max_steps = $MAX_STEPS" \
+  --gin_bindings="Config.data_dir = '${DIR}/data/$NAME'" \
+  --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$NAME/$EXP'" \
   --gin_bindings="Config.batch_size = $BATCH_SIZE" \
   --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE" \
   --gin_bindings="NerfMLP.deg_view = $DEG_VIEW" \
@@ -37,11 +45,11 @@ XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 tr
   --logtostderr \
   && \
   python3 render.py \
-    --gin_configs="${DIR}/logs/$1/$2/config.gin" \
-    --gin_bindings="Config.data_dir = '${DIR}/data/$1'" \
-    --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
-    --gin_bindings="Config.render_dir = '${DIR}/logs/$1/$2/render/'" \
-    --gin_bindings="Config.render_path = False" \
+    --gin_configs="${DIR}/logs/$NAME/$EXP/config.gin" \
+    --gin_bindings="Config.data_dir = '${DIR}/data/$NAME'" \
+    --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$NAME/$EXP'" \
+    --gin_bindings="Config.render_dir = '${DIR}/logs/$NAME/$EXP/render/'" \
+    --gin_bindings="Config.render_path = $RENDER_PATH" \
     --gin_bindings="Config.render_path_frames = 480" \
     --gin_bindings="Config.render_video_fps = 60" \
     --gin_bindings="Config.batch_size = $BATCH_SIZE" \
@@ -51,9 +59,9 @@ XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 tr
     --logtostderr \
   && \
   python3 eval.py \
-  --gin_configs="${DIR}/logs/$1/$2/config.gin" \
-  --gin_bindings="Config.data_dir = '${DIR}/data/$1" \
-  --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$1/$2'" \
+  --gin_configs="${DIR}/logs/$NAME/$EXP/config.gin" \
+  --gin_bindings="Config.data_dir = '${DIR}/data/$NAME'" \
+  --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$NAME/$EXP'" \
   --gin_bindings="Config.batch_size = $BATCH_SIZE" \
   --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE" \
   --gin_bindings="NerfMLP.deg_view = $DEG_VIEW" \
