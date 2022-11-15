@@ -15,6 +15,7 @@
 """Mathy utility functions."""
 
 import torch
+import functorch
 import numpy as np
 
 
@@ -98,13 +99,13 @@ def learning_rate_decay(step,
             0.5 * np.pi * np.clip(step / lr_delay_steps, 0, 1))
     else:
         delay_rate = 1.
-    return delay_rate * log_lerp(step / max_steps, lr_init, lr_final)
+    return delay_rate * log_lerp(step / max_steps, lr_init, lr_final) / lr_init
 
 
 def interp(*args):
     """A gather-based (GPU-friendly) vectorized replacement for torch.interp()."""
     args_flat = [x.reshape([-1, x.shape[-1]]) for x in args]
-    ret = torch.vmap(torch.interp)(*args_flat).reshape(args[0].shape)
+    ret = functorch.vmap(torch.interp)(*args_flat).reshape(args[0].shape)
     return ret
 
 

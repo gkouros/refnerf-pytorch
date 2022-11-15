@@ -259,22 +259,15 @@ def create_optimizer(
         'eps': config.adam_eps,
     }
     lr_kwargs = {
+        'lr_init': config.lr_init,
+        'lr_final': config.lr_final,
         'max_steps': config.max_steps,
         'lr_delay_steps': config.lr_delay_steps,
         'lr_delay_mult': config.lr_delay_mult,
     }
-
-    def get_lr_fn(lr_init, lr_final):
-        return functools.partial(
-            math.learning_rate_decay,
-            lr_init=lr_init,
-            lr_final=lr_final,
-            **lr_kwargs)
-
     optimizer = torch.optim.Adam(params=params, **adam_kwargs)
-    lr_fn_main = get_lr_fn(config.lr_init, config.lr_final)
-    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_fn_main)
-
+    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
+        optimizer, functools.partial(math.learning_rate_decay, **lr_kwargs))
     return optimizer, lr_scheduler
 
 
