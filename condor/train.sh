@@ -11,13 +11,13 @@ conda activate refnerf
 export PATH="/usr/local/cuda-11/bin:/usr/local/cuda/bin:$PATH"
 export LD_LIBRARY_PATH="/usr/local/cuda-11/lib64:/usr/local/cuda/lib64:$CONDA_PREFIX/lib/:$LD_LIBRARY_PATH"
 
-DIR=/users/visics/gkouros/projects/nerf-repos/Ref-NeRF-plusplus/
+DIR=/users/visics/gkouros/projects/nerf-repos/refnerf-pytorch/
 cd ${DIR}
 
 ENABLE_PRED_ROUGHNESS=True
 DEG_VIEW=5
-BATCH_SIZE=1024
-RENDER_CHUNK_SIZE=1024
+BATCH_SIZE=4
+RENDER_CHUNK_SIZE=1
 
 # If job gets evicted reload generated config file not original that might have been modified
 if [ -f "${DIR}/logs/$1/$2/config.gin" ]; then
