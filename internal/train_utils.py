@@ -254,6 +254,7 @@ def create_optimizer(
         params: Dict) -> Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR]:
     """Creates optimizer for model training."""
     adam_kwargs = {
+        'lr': config.lr_init,
         'betas': (config.adam_beta1, config.adam_beta2),
         'eps': config.adam_eps,
     }
