@@ -67,8 +67,7 @@ def conical_frustum_to_gaussian(d, t0, t1, base_radius, diag, stable=True):
         eps = torch.tensor(torch.finfo(torch.float32).eps)
         t_mean = mu + (2 * mu * hw**2) / torch.maximum(eps, 3 * mu**2 + hw**2)
         denom = torch.maximum(eps, 3 * mu**2 + hw**2)
-q        t_var = (hw**2) / 3 - (4 / 15) * hw**4 * \
-            (12 * mu**2 - hw**2) / denom**2
+        t_var = (hw**2) / 3 - (4 / 15) * hw**4 * (12 * mu**2 - hw**2) / denom**2
         r_var = (mu**2) / 4 + (5 / 12) * hw**2 - (4 / 15) * (hw**4) / denom
     else:
         # Equations 37-39 in the paper.
