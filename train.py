@@ -44,6 +44,14 @@ TIME_PRECISION = 1000  # Internally represent integer times in milliseconds.
 def main(unused_argv):
     config = configs.load_config()
 
+    # setup device
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    else:
+        device = torch.device('cpu')
+        torch.set_default_tensor_type('torch.FloatTensor')
+
     # load training and test sets
     dataset = datasets.load_dataset('train', config.data_dir, config)
     test_dataset = datasets.load_dataset('test', config.data_dir, config)
@@ -102,12 +110,14 @@ def main(unused_argv):
     else:
         num_steps = config.max_steps
 
-    # set model to training mode
-    model.train()
+    # set model to training mode and send to device
+    model.to(device)
 
     # start training loop
     for step, batch in zip(range(init_step, num_steps + 1), dataset):
+        model.train()
 
+        # clear stats for this iteration
         if reset_stats:
             stats_buffer = []
             train_start_time = time.time()
@@ -132,6 +142,9 @@ def main(unused_argv):
 
         # Log training summaries
         stats_buffer.append(stats)
+
+        # set model to inference mode
+        model.eval()
 
         with torch.no_grad():
 
@@ -215,10 +228,10 @@ def main(unused_argv):
                 # here on purpose so that the visualization matches what happened in
                 # training.
                 eval_start_time = time.time()
-                eval_params = model.parameters()
                 test_case = next(test_dataset)
+                test_case.rays.to(device)
                 rendering = models.render_image(
-                    functools.partial(render_eval_fn, eval_params, train_frac),
+                    functools.partial(render_eval_fn, train_frac),
                     test_case.rays, config)
 
                 # Log eval summaries
