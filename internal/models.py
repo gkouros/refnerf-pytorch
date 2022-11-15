@@ -17,7 +17,6 @@
 import functools
 from typing import Any, Callable, List, Mapping, MutableMapping, Optional, Text, Tuple
 
-from flax import linen as nn
 import gin.torch
 import torch
 from torch import nn
