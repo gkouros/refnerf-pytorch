@@ -30,17 +30,6 @@ from internal import stepfun
 from internal import utils
 
 
-def summarize_tree(tree, fn, ancestry=(), max_depth=3):
-  """Flatten 'tree' while 'fn'-ing values and formatting keys like/this."""
-  stats = {}
-  for k, v in tree.items():
-    name = ancestry + (k,)
-    stats['/'.join(name)] = fn(v)
-    if hasattr(v, 'items') and len(ancestry) < (max_depth - 1):
-      stats.update(summarize_tree(v, fn, ancestry=name, max_depth=max_depth))
-  return stats
-
-
 def compute_data_loss(batch, renderings, rays, config):
     """Computes data loss terms for RGB, normal, and depth outputs."""
     data_losses = []
@@ -148,7 +137,7 @@ def create_train_step(model: models.Model,
       dataset: Training dataset.
 
     Returns:
-      pmap'ed training function.
+      training function.
     """
     if dataset is None:
         camtype = camera_utils.ProjectionType.PERSPECTIVE
@@ -179,17 +168,9 @@ def create_train_step(model: models.Model,
         rays = batch.rays
         if config.cast_rays_in_train_step:
             rays = camera_utils.cast_ray_batch(
-                cameras, rays, camtype, xnp=torch)
+                cameras, rays, camtype, xnp=torch).to(device)
         else:
-            rays.origins = torch.tensor(rays.origins, dtype=torch.float32)
-            rays.directions = torch.tensor(rays.directions, dtype=torch.float32)
-            rays.viewdirs = torch.tensor(rays.viewdirs, dtype=torch.float32)
-            rays.radii = torch.tensor(rays.radii, dtype=torch.float32)
-            rays.imageplane = torch.tensor(rays.imageplane, dtype=torch.float32)
-            rays.lossmult = torch.tensor(rays.lossmult, dtype=torch.float32)
-            rays.near = torch.tensor(rays.near, dtype=torch.float32)
-            rays.far = torch.tensor(rays.far, dtype=torch.float32)
-            rays.cam_idx = torch.tensor(rays.cam_idx, dtype=torch.float32)
+            rays.to(model.device)
 
         # Indicates whether we need to compute output normal or depth maps in 2D.
         compute_extras = (
@@ -221,7 +202,6 @@ def create_train_step(model: models.Model,
             losses['predicted_normals'] = predicted_normal_loss(
                 model, ray_history, config)
 
-        # print(params)
         params = dict(model.named_parameters())
         stats['weights_l2s'] = {k.replace('.', '/') : params[k].detach().norm() ** 2 for k in params}
 
@@ -299,8 +279,8 @@ def create_optimizer(
 
 def create_render_fn(model: models.Model):
     """Creates a function for full image rendering."""
-    def render_eval_fn(train_frac, _, rays):
-        return model.apply(
+    def render_eval_fn(train_frac, rays):
+        return model(
             rays,
             train_frac=train_frac,
             compute_extras=True)
