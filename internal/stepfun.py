@@ -23,7 +23,10 @@ values that *integrate* to <= 1.
 """
 
 import torch
+import functorch
 from internal import math
+import numpy as np
+
 
 def searchsorted(a, v):
     """Find indices where v should be inserted into a to maintain order.
@@ -113,12 +116,13 @@ def max_dilate(t, w, dilation, domain=(-float('inf'), float('inf'))):
     return t_dilate, w_dilate
 
 
-def max_dilate_weights(t,
-                       w,
-                       dilation,
-                       domain=(-float('inf'), float('inf')),
-                       renormalize=False,
-                       eps=torch.finfo(torch.float32).eps**2):
+def max_dilate_weights(
+        t,
+        w,
+        dilation,
+        domain=(-float('inf'), float('inf')),
+        renormalize=False,
+        eps=torch.finfo(torch.float32).eps**2):
     """Dilate (via max-pooling) a set of weights."""
     p = weight_to_pdf(t, w)
     t_dilate, p_dilate = max_dilate(t, p, dilation, domain=domain)
@@ -164,13 +168,13 @@ def invert_cdf(u, t, w_logits, use_gpu_resampling=False):
 
 
 def sample(
-      t,
-      w_logits,
-      num_samples,
-      single_jitter=False,
-      deterministic_center=False,
-      use_gpu_resampling=False
-    ):
+    t,
+    w_logits,
+    num_samples,
+    single_jitter=False,
+    deterministic_center=False,
+    use_gpu_resampling=False
+):
     """Piecewise-Constant PDF sampling from a step function.
 
     Args:
@@ -204,13 +208,13 @@ def sample(
 
 
 def sample_intervals(
-        t,
-        w_logits,
-        num_samples,
-        single_jitter=False,
-        domain=(-float('inf'), float('inf')),
-        use_gpu_resampling=False
-    ):
+    t,
+    w_logits,
+    num_samples,
+    single_jitter=False,
+    domain=(-float('inf'), float('inf')),
+    use_gpu_resampling=False
+):
     """Sample *intervals* (rather than points) from a step function.
 
     Args:
@@ -247,8 +251,10 @@ def sample_intervals(
     # around the first/last sampled center. We clamp to the limits of the input
     # domain, provided by the caller.
     minval, maxval = domain
-    first = torch.maximum(torch.tensor(minval), 2 * centers[..., :1] - mid[..., :1])
-    last = torch.minimum(torch.tensor(maxval), 2 * centers[..., -1:] - mid[..., -1:])
+    first = torch.maximum(torch.tensor(minval), 2 *
+                          centers[..., :1] - mid[..., :1])
+    last = torch.minimum(torch.tensor(maxval), 2 *
+                         centers[..., -1:] - mid[..., -1:])
     t_samples = torch.cat([first, mid, last], dim=-1)
     return t_samples
 
@@ -273,12 +279,12 @@ def interval_distortion(t0_lo, t0_hi, t1_lo, t1_hi):
     d_disjoint = torch.abs((t1_lo + t1_hi) / 2 - (t0_lo + t0_hi) / 2)
 
     # Distortion when the intervals overlap.
-    d_overlap = (2 *
-                 (torch.minimum(t0_hi, t1_hi)**3 - torch.maximum(t0_lo, t1_lo)**3) +
-                 3 * (t1_hi * t0_hi * torch.abs(t1_hi - t0_hi) +
-                      t1_lo * t0_lo * torch.abs(t1_lo - t0_lo) + t1_hi * t0_lo *
-                      (t0_lo - t1_hi) + t1_lo * t0_hi *
-                      (t1_lo - t0_hi))) / (6 * (t0_hi - t0_lo) * (t1_hi - t1_lo))
+    d_overlap = (
+        2 * (torch.minimum(t0_hi, t1_hi)**3 - torch.maximum(t0_lo, t1_lo)**3) +
+        3 * (t1_hi * t0_hi * torch.abs(t1_hi - t0_hi) +
+             t1_lo * t0_lo * torch.abs(t1_lo - t0_lo) + t1_hi * t0_lo *
+             (t0_lo - t1_hi) + t1_lo * t0_hi *
+             (t1_lo - t0_hi))) / (6 * (t0_hi - t0_lo) * (t1_hi - t1_lo))
 
     # Are the two intervals not overlapping?
     are_disjoint = (t0_lo > t1_hi) | (t1_lo > t0_hi)
@@ -290,12 +296,14 @@ def weighted_percentile(t, w, ps):
     """Compute the weighted percentiles of a step function. w's must sum to 1."""
     cw = integrate_weights(w)
     # We want to interpolate into the integrated weights according to `ps`.
+
     def fn(cw_i, t_i):
-        return torch.interp(torch.array(ps) / 100, cw_i, t_i)
+        return math.interp(torch.tensor(ps) / 100, cw_i, t_i)
+
     # Vmap fn to an arbitrary number of leading dimensions.
     cw_mat = cw.reshape([-1, cw.shape[-1]])
     t_mat = t.reshape([-1, t.shape[-1]])
-    wprctile_mat = (torch.vmap(fn, 0)(cw_mat, t_mat))
+    wprctile_mat = (functorch.vmap(fn, 0)(cw_mat, t_mat))
     wprctile = wprctile_mat.reshape(cw.shape[:-1] + (len(ps),))
     return wprctile
 
