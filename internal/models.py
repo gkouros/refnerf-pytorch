@@ -78,6 +78,7 @@ class Model(nn.Module):
             init_s_far (float, optional): Initial values for far bound of the rays. Defaults to 1.
         """
         super().__init__()
+        self.config = config
         self.single_mlp = single_mlp
         self.num_prop_samples = num_prop_samples
         self.num_nerf_samples = num_nerf_samples
@@ -99,6 +100,10 @@ class Model(nn.Module):
         # being regularized.
         self.nerf_mlp = NerfMLP()
         self.prop_mlp = self.nerf_mlp if self.single_mlp else PropMLP()
+
+    @property
+    def device(self):
+        return next(self.parameters()).device
 
     def __call__(
         self,
@@ -517,14 +522,16 @@ class MLP(nn.Module):
         normals_pred = -ref_utils.l2_normalize(grad_pred)
 
         # calculate normals through density gradients
-        if not self.disable_density_normals:
+        if self.disable_density_normals:
+            normals = None
+        elif self.training:
             grad, = torch.autograd.grad(
                 density, means, torch.ones_like(density, device=density.device),
                 retain_graph=True)
-            grad_norm = grad.norm(dim = -1, keepdim = True)
+            grad_norm = grad.norm(dim=-1, keepdim=True)
             normals = -ref_utils.l2_normalize(grad_norm)
         else:
-            normals = None
+            normals = normals_pred
 
         roughness = 0
         if self.disable_rgb:
@@ -661,7 +668,6 @@ def render_image(render_fn: Callable[[torch.tensor, utils.Rays],
     chunks = []
     idx0s = range(0, num_rays, config.render_chunk_size)
     for i_chunk, idx0 in enumerate(idx0s):
-        # pylint: disable=cell-var-from-loop
         if verbose and i_chunk % max(1, len(idx0s) // 10) == 0:
             print(f'Rendering chunk {i_chunk}/{len(idx0s)-1}')
         chunk_rays = rays[idx0:idx0 + config.render_chunk_size]
