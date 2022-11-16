@@ -24,6 +24,7 @@ import torch
 import flatdict
 import logging.config
 from absl import flags
+import absl
 
 from torch.utils.tensorboard import SummaryWriter
 from absl import app
@@ -85,10 +86,10 @@ def main(unused_argv):
 
     # setup logging to file
     logfile = os.path.join(config.checkpoint_dir, 'output.log')
-    print('Logging to ' + logfile)
+    logging.getLogger().handlers = []
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[logging.FileHandler(logfile), logging.StreamHandler()])
+        handlers=[logging.FileHandler(logfile), logging.StreamHandler(sys.stdout)])
 
     # print the number of parameters of the model
     num_params = sum(p.numel() for p in model.parameters())
@@ -136,9 +137,9 @@ def main(unused_argv):
             train_frac,
         )
 
-        if step % config.gc_every == 0:
+        # if step % config.gc_every == 0:
             # Disable automatic garbage collection for efficiency.
-            gc.collect()
+            # gc.collect()
 
         # Log training summaries
         stats_buffer.append(stats)
@@ -189,6 +190,7 @@ def main(unused_argv):
                     summary_writer.add_scalar(f'train_max_{k}', v, step)
                 summary_writer.add_scalar('train_num_params', num_params, step)
                 summary_writer.add_scalar('train_learning_rate', *lr_scheduler.get_last_lr(), step)
+
                 summary_writer.add_scalar('train_steps_per_sec', steps_per_sec, step)
                 summary_writer.add_scalar('train_rays_per_sec', rays_per_sec, step)
                 summary_writer.add_scalar('train_avg_psnr_timed', avg_stats['psnr'],
