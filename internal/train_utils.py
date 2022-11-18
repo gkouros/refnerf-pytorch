@@ -207,8 +207,8 @@ def create_train_step(model: models.Model,
 
         # calculate total loss
         loss = torch.sum(torch.stack(list(losses.values())))
-        stats['loss'] = loss
-        stats['losses'] = losses
+        stats['loss'] = loss.detach().cpu()
+        stats['losses'] = {key: losses[key].detach().cpu() for key in losses}
 
         # backprop
         loss.backward()
@@ -218,8 +218,8 @@ def create_train_step(model: models.Model,
         # pdb.pm()
 
         # calculate average grad and stats
-        stats['grad_norms'] = {k.replace('.', '/') : params[k].grad.detach().norm() for k in params}
-        stats['grad_maxes'] = {k.replace('.', '/') : params[k].grad.detach().abs().max() for k in params}
+        stats['grad_norms'] = {k.replace('.', '/') : params[k].grad.detach().cpu().norm() for k in params}
+        stats['grad_maxes'] = {k.replace('.', '/') : params[k].grad.detach().cpu().abs().max() for k in params}
 
         # Clip gradients
         if config.grad_max_val > 0:
