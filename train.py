@@ -227,7 +227,7 @@ def main(unused_argv):
                     model=model.state_dict(),
                     optimizer=optimizer.state_dict(),
                     lr_scheduler=lr_scheduler.state_dict())
-                torch.save(state, path=os.path.join(config.checkpoint_dir, f'checkpoint_{step}'))
+                torch.save(state, os.path.join(config.checkpoint_dir, f'checkpoint_{step}'))
 
             # Test-set evaluation.
             if config.train_render_every > 0 and step % config.train_render_every == 0:
@@ -281,7 +281,7 @@ def main(unused_argv):
                 model=model.state_dict(),
                 optimizer=optimizer.state_dict(),
                 lr_scheduler=lr_scheduler.state_dict())
-            torch.save(state, path=os.path.join(
+            torch.save(state, os.path.join(
                 config.checkpoint_dir, f'checkpoint_{config.max_steps}'))
 
 
