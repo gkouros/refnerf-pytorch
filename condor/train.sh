@@ -16,8 +16,8 @@ cd ${DIR}
 
 ENABLE_PRED_ROUGHNESS=True
 DEG_VIEW=5
-BATCH_SIZE=8192
-RENDER_CHUNK_SIZE=8192
+BATCH_SIZE=1024
+RENDER_CHUNK_SIZE=1024
 MAX_STEPS=1000000
 
 if [[ "$CONFIG" == *"llff"* ]]; then
@@ -33,7 +33,7 @@ else
   CONFIG_PATH="$CONFIG"
 fi
 
-XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 train.py \
+python3 train.py \
   --gin_configs="$CONFIG_PATH" \
   --gin_bindings="Config.max_steps = $MAX_STEPS" \
   --gin_bindings="Config.data_dir = '${DIR}/data/$NAME'" \
@@ -42,7 +42,6 @@ XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 tr
   --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE" \
   --gin_bindings="NerfMLP.deg_view = $DEG_VIEW" \
   --gin_bindings="NerfMLP.enable_pred_roughness = $ENABLE_PRED_ROUGHNESS" \
-  --logtostderr \
   && \
   python3 render.py \
     --gin_configs="${DIR}/logs/$NAME/$EXP/config.gin" \
@@ -56,7 +55,6 @@ XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 tr
     --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE" \
     --gin_bindings="NerfMLP.deg_view = $DEG_VIEW" \
     --gin_bindings="NerfMLP.enable_pred_roughness = $ENABLE_PRED_ROUGHNESS" \
-    --logtostderr \
   && \
   python3 eval.py \
   --gin_configs="${DIR}/logs/$NAME/$EXP/config.gin" \
@@ -65,7 +63,6 @@ XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 tr
   --gin_bindings="Config.batch_size = $BATCH_SIZE" \
   --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE" \
   --gin_bindings="NerfMLP.deg_view = $DEG_VIEW" \
-  --gin_bindings="NerfMLP.enable_pred_roughness = $ENABLE_PRED_ROUGHNESS" \
-  --logtostderr
+  --gin_bindings="NerfMLP.enable_pred_roughness = $ENABLE_PRED_ROUGHNESS"
 
 conda deactivate
