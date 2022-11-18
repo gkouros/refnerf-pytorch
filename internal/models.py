@@ -16,7 +16,9 @@
 
 import functools
 from typing import Any, Callable, List, Mapping, MutableMapping, Optional, Text, Tuple
+from itertools import chain
 
+import logging
 import gin.torch
 import torch
 from torch import nn
@@ -487,17 +489,19 @@ class MLP(nn.Module):
         """
         # get inputs in the form of means and variances representation the ray segments
         means, covs = gaussians
-        means.requires_grad_()
-        # means.requires_grad = not self.disable_density_normals
+        
+        if self.training:
+            means.requires_grad_()
 
         # lift means and vars of position input
         lifted_means, lifted_vars = (
             coord.lift_and_diagonalize(means, covs, self.pos_basis_t))
-
+        
         # apply integrated position encoding to position input
         x = coord.integrated_pos_enc(lifted_means, lifted_vars,
                                      self.min_deg_point, self.max_deg_point)
         inputs = x
+
         # Evaluate network to produce the output density.
         inputs = x
         for i, layer in enumerate(self.spatial_net):
@@ -648,7 +652,8 @@ def render_image(render_fn: Callable[[torch.tensor, utils.Rays],
                                            List[Tuple[torch.tensor, ...]]]],
                  rays: utils.Rays,
                  config: configs.Config,
-                 verbose: bool = True) -> MutableMapping[Text, Any]:
+                 verbose: bool = True,
+                 device=torch.device('cuda')) -> MutableMapping[Text, Any]:
     """Render all the pixels of an image (in test mode).
 
     Args:
@@ -664,12 +669,15 @@ def render_image(render_fn: Callable[[torch.tensor, utils.Rays],
     """
     height, width = rays.origins.shape[:2]
     num_rays = height * width
+    rays = rays.reshape(num_rays, -1)
     chunks = []
     idx0s = range(0, num_rays, config.render_chunk_size)
+
     for i_chunk, idx0 in enumerate(idx0s):
         if verbose and i_chunk % max(1, len(idx0s) // 10) == 0:
-            print(f'Rendering chunk {i_chunk}/{len(idx0s)-1}')
+            logging.info(f'Rendering chunk {i_chunk}/{len(idx0s)-1}')
         chunk_rays = rays[idx0:idx0 + config.render_chunk_size]
+        chunk_rays.to(device)
         chunk_renderings, _ = render_fn(chunk_rays)
 
         # Gather the final pass for 2D buffers and all passes for ray bundles.
@@ -680,11 +688,38 @@ def render_image(render_fn: Callable[[torch.tensor, utils.Rays],
 
         chunks.append(chunk_rendering)
 
-    # Concatenate all chunks within each leaf of a single pytree.
-    rendering = torch.concatenate(chunks)
+    # Concatenate all chunks
+    def merge_chunks(chunks):
+        merged_chunks = {}
+        for key in chunks[0]:
+            if isinstance(chunks[0][key], list):
+                merged_chunks[key] = [
+                    torch.cat([chunk[key][idx] for chunk in chunks])
+                    for idx in range(len(chunks[0][key]))
+                ]
+            elif isinstance(chunks[0][key], torch.Tensor):
+                merged_chunks[key] = torch.cat([tdict[key] for tdict in chunks])
+            else:
+                raise ValueError('Contents should be either list or tensor')
+        return merged_chunks
+        
+    rendering = merge_chunks(chunks)
+
+    # reshape renderings 2D images
     for k, z in rendering.items():
         if not k.startswith('ray_'):
             # Reshape 2D buffers into original image shape.
             rendering[k] = z.reshape((height, width) + z.shape[1:])
+
+    # After all of the ray bundles have been concatenated together, extract a
+    # new random bundle (deterministically) from the concatenation that is the
+    # same size as one of the individual bundles.
+    keys = [k for k in rendering if k.startswith('ray_')]
+    if keys:
+        temp_num_rays = rendering[keys[0]][0].shape[0]
+        ray_idx = torch.randperm(temp_num_rays)
+        ray_idx = ray_idx[:config.vis_num_rays]
+        for k in keys:
+            rendering[k] = [r[ray_idx] for r in rendering[k]]
 
     return rendering
