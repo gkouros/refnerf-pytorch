@@ -61,7 +61,7 @@ def main(unused_argv):
     setup = train_utils.setup_model(config, dataset=dataset)
     model, optimizer, lr_scheduler, render_eval_fn, train_step = setup
     state = dict(
-        step=1,
+        step=0,
         model=model.state_dict(),
         optim=optimizer.state_dict(),
         lr_scheduler=lr_scheduler.state_dict(),
