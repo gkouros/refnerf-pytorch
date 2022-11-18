@@ -308,7 +308,8 @@ def weighted_percentile(t, w, ps):
     return wprctile
 
 
-def resample(t, tp, vp, use_avg=False, eps=torch.finfo(torch.float32).eps):
+def resample(t, tp, vp, use_avg=False,
+             eps=torch.tensor(torch.finfo(torch.float32).eps)):
     """Resample a step function defined by (tp, vp) into intervals t.
 
     Notation roughly matches jnp.interp. Resamples by summation by default.
@@ -336,7 +337,13 @@ def resample(t, tp, vp, use_avg=False, eps=torch.finfo(torch.float32).eps):
 
     acc = torch.cumsum(vp, dim=-1)
     acc0 = torch.cat([torch.zeros(acc.shape[:-1] + (1,)), acc], dim=-1)
-    acc0_resampled = torch.vectorize(
-        torch.interp, signature='(n),(m),(m)->(n)')(t, tp, acc0)
+    
+    if len(acc0.shape) == 2:
+        acc0_resampled = torch.stack([
+            math.interp(t, tp, acc0[dim]) for dim in range(len(acc0))], dim=0)
+    else:
+        acc0_resampled = math.interp(t, tp, acc0)
+        
     v = torch.diff(acc0_resampled, dim=-1)
+    
     return v
