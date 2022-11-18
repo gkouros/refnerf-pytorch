@@ -24,7 +24,7 @@ import torch
 from dataclasses import dataclass, fields
 
 
-_Array = Union[np.ndarray, torch.tensor]
+_Array = Union[np.ndarray, torch.Tensor]
 
 
 @dataclass
@@ -63,11 +63,11 @@ class Rays:
 
     def __getitem__(self, s):
         if isinstance(s, int):
-            return Rays(*([getattr(self, dim.name)[s]]
-                        for dim in fields(self)))
+            return Rays(*[[getattr(self, dim.name)[s]]
+                        for dim in fields(self)])
         elif isinstance(s, slice):
-            return Rays(*(getattr(self, dim.name)[s]
-                        for dim in fields(self)))
+            return Rays(*[getattr(self, dim.name)[s]
+                        for dim in fields(self)])
         else:
             raise ValueError('Argument to __getitem__ must be int or slice')
 
@@ -82,8 +82,15 @@ class Rays:
                 if getattr(self, dim.name).device != device:
                     getattr(self, dim.name).to(device)
             else:
-                raise ValueError('Rays members must be either np.array or torch.tensor')
+                raise ValueError('Rays members must be either np.ndarray or torch.Tensor')
 
+    def reshape(self, *dims):
+        return Rays(*[getattr(self, dim.name).reshape(*dims)
+                        for dim in fields(self)])
+    @property
+    def shape(self):
+        return self.origins.shape
+            
 
 # Dummy Rays object that can be used to initialize NeRF model.
 def dummy_rays() -> Rays:
