@@ -144,6 +144,11 @@ def main(unused_argv):
         # Log training summaries
         stats_buffer.append(stats)
 
+        #TODO: Redundant?
+        del batch
+        gc.collect()
+        torch.cuda.empty_cache()
+
         # set model to inference mode
         model.eval()
 
@@ -232,6 +237,8 @@ def main(unused_argv):
                 eval_start_time = time.time()
                 test_case = next(test_dataset)
                 test_case.rays.to(device)
+
+                # render test image
                 rendering = models.render_image(
                     functools.partial(render_eval_fn, train_frac),
                     test_case.rays, config)
@@ -240,7 +247,7 @@ def main(unused_argv):
                 eval_time = time.time() - eval_start_time
                 num_rays = np.prod(np.array(test_case.rays.directions.shape[:-1]))
                 rays_per_sec = num_rays / eval_time
-                summary_writer.scalar('test_rays_per_sec', rays_per_sec, step)
+                summary_writer.add_scalar('test_rays_per_sec', rays_per_sec, step)
                 logging.info(f'Eval {step}: {eval_time:0.3f}s., {rays_per_sec:0.0f} rays/sec')
 
                 if config.compute_eval_metrics:
@@ -250,18 +257,22 @@ def main(unused_argv):
                     for name, val in metric.items():
                         if not np.isnan(val):
                             logging.info(f'{name} = {val:.4f}')
-                            summary_writer.scalar(
+                            summary_writer.add_scalar(
                                 'train_metrics/' + name, val, step)
 
                 vis_start_time = time.time()
                 vis_suite = vis.visualize_suite(rendering, test_case.rays)
-                logging.info(f'Visualized in {(time.time() - vis_start_time):0.3f}s')
-                summary_writer.image('test_true_color', test_case.rgb, step)
+                logging.info(f'Visualized in {(time.time() - vis_start_time):0.3f}s')                
+                summary_writer.add_image(
+                    'test_true_color', test_case.rgb, step, dataformats='HWC')
                 if config.compute_normal_metrics:
-                    summary_writer.image('test_true_normals',
-                                        test_case.normals / 2. + 0.5, step)
+                    summary_writer.add_image(
+                        'test_true_normals', test_case.normals / 2. + 0.5, step,
+                        dataformats='HWC')
                 for k, v in vis_suite.items():
-                    summary_writer.image('test_output_' + k, v, step)
+                    summary_writer.add_image(
+                        'test_output_' + k, v, step,
+                        dataformats='HWC' if len(v.shape) == 3 else 'HW')
 
         # save last checkpoint if it wasn't already saved
         if config.max_steps % config.checkpoint_every != 0:
