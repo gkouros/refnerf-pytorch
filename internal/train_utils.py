@@ -85,6 +85,20 @@ def compute_data_loss(batch, renderings, rays, config):
     return loss, stats
 
 
+def interlevel_loss(ray_history, config):
+    """Computes the interlevel loss defined in mip-NeRF 360."""
+    # Stop the gradient from the interlevel loss onto the NeRF MLP.
+    last_ray_results = ray_history[-1]
+    c = last_ray_results['sdist'].detach()
+    w = last_ray_results['weights'].detach()
+    loss_interlevel = 0.
+    for ray_results in ray_history[:-1]:
+        cp = ray_results['sdist']
+        wp = ray_results['weights']
+        loss_interlevel += torch.mean(stepfun.lossfun_outer(c, w, cp, wp))
+    return config.interlevel_loss_mult * loss_interlevel
+
+
 def orientation_loss(rays, model, ray_history, config):
     """Computes the orientation loss regularizer defined in ref-NeRF."""
     total_loss = 0.
@@ -190,6 +204,10 @@ def create_train_step(model: models.Model,
         data_loss, stats = compute_data_loss(batch, renderings, rays, config)
         losses['data'] = data_loss
 
+        # calculate interlevel loss
+        if config.interlevel_loss_mult > 0:
+            losses['interlevel'] = interlevel_loss(ray_history, config)
+
         # calculate normals orientation loss
         if (config.orientation_coarse_loss_mult > 0 or
                 config.orientation_loss_mult > 0):
@@ -213,10 +231,6 @@ def create_train_step(model: models.Model,
         # backprop
         loss.backward()
 
-        # import pdb
-        # pdb.set_trace()
-        # pdb.pm()
-
         # calculate average grad and stats
         stats['grad_norms'] = {k.replace('.', '/') : params[k].grad.detach().cpu().norm() for k in params}
         stats['grad_maxes'] = {k.replace('.', '/') : params[k].grad.detach().cpu().abs().max() for k in params}
@@ -227,7 +241,6 @@ def create_train_step(model: models.Model,
         if config.grad_max_norm > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=config.grad_max_norm)
         #TODO: set nan grads to 0
-        # grad = jax.tree_util.tree_map(jnp.nan_to_num, grad)
 
         # update the model weights
         optimizer.step()

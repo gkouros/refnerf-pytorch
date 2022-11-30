@@ -50,9 +50,9 @@ def searchsorted(a, v):
     i = torch.arange(a.shape[-1])
     v_ge_a = v[..., None, :] >= a[..., :, None]
     idx_lo = torch.max(torch.where(
-        v_ge_a, i[..., :, None], i[..., :1, None]), -2)
+        v_ge_a, i[..., :, None], i[..., :1, None]), dim=-2).values
     idx_hi = torch.min(torch.where(
-        ~v_ge_a, i[..., :, None], i[..., -1:, None]), -2)
+        ~v_ge_a, i[..., :, None], i[..., -1:, None]), dim=-2).values
     return idx_lo, idx_hi
 
 
@@ -86,7 +86,7 @@ def lossfun_outer(t, w, t_env, w_env, eps=torch.finfo(torch.float32).eps):
     # We assume w_inner <= w <= w_outer. We don't penalize w_inner because it's
     # more effective to pull w_outer up than it is to push w_inner down.
     # Scaled half-quadratic loss that gives a constant gradient at w_outer = 0.
-    return torch.maximum(0, w - w_outer)**2 / (w + eps)
+    return torch.maximum(torch.tensor(.0), w - w_outer)**2 / (w + eps)
 
 
 def weight_to_pdf(t, w, eps=torch.finfo(torch.float32).eps**2):
