@@ -150,6 +150,8 @@ class Model(nn.Module):
                 torch.log(weights + self.resample_padding), -float('inf'))
 
             # Draw sampled intervals from each ray's current weights.
+            # Optimization will usually go nonlinear if you propagate gradients
+            # through sampling so detach sdist
             sdist = stepfun.sample_intervals(
                 sdist,
                 logits_resample,
@@ -157,11 +159,7 @@ class Model(nn.Module):
                 single_jitter=self.single_jitter,
                 domain=(self.init_s_near, self.init_s_far),
                 use_gpu_resampling=False,
-                )
-
-            # Optimization will usually go nonlinear if you propagate gradients
-            # through sampling.
-            sdist.detach()
+                ).detach()
 
             # Convert normalized distances to metric distances.
             tdist = s_to_t(sdist)
