@@ -17,7 +17,7 @@
 import functools
 from typing import Any, Callable, List, Mapping, MutableMapping, Optional, Text, Tuple
 from itertools import chain
-
+import math as python_math
 import logging
 import gin.torch
 import torch
@@ -32,8 +32,18 @@ from internal import render
 from internal import stepfun
 from internal import utils
 
-gin.config.external_configurable(math.safe_exp, module='math')
-gin.config.external_configurable(coord.contract, module='coord')
+
+# apply same default initialization as the Jax version
+def reset_parameters(self) -> None:
+    # Setting a=sqrt(5) in kaiming_uniform is the same as initializing with
+    # uniform(-1/sqrt(in_features), 1/sqrt(in_features)). For details, see
+    # https://github.com/pytorch/pytorch/issues/57109
+    nn.init.kaiming_uniform_(self.weight, a=python_math.sqrt(5))
+    # torch.nn.init.constant_(self.weight, val=1e-3)
+    if self.bias is not None:
+        nn.init.constant_(self.bias, val=0)
+
+nn.Linear.reset_parameters = reset_parameters
 
 
 @gin.configurable
