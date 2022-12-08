@@ -267,7 +267,8 @@ class Model(nn.Module):
                 extras={
                     k: v
                     for k, v in ray_results.items()
-                    if k.startswith('normals') or k in ['roughness']
+                    if k.startswith('normals') or k in [
+                        'roughness', 'diffuse', 'specular', 'tint']
                 })
 
             if compute_extras:
