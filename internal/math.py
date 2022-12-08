@@ -19,11 +19,6 @@ import functorch
 import numpy as np
 
 
-def matmul(a, b):
-    """Helper function for matrix multiplication."""
-    return torch.matmul(a, b)
-
-
 def safe_trig_helper(x, fn, t=100 * torch.pi):
     """Helper function used by safe_cos/safe_sin: mods x before sin()/cos()."""
     return fn(torch.where(torch.abs(x) < t, x, x % t))
@@ -37,25 +32,6 @@ def safe_cos(x):
 def safe_sin(x):
     """torch.sin() on a TPU may NaN out for large values."""
     return safe_trig_helper(x, torch.sin)
-
-# TODO: needs safe Jacobian calculation. How do I do it in PyTorch?
-# Maybe this solution? https://discuss.pytorch.org/t/notimplementederror-you-must-implement-the-jvp-function-for-custom-autograd-function-to-use-it-with-forward-mode-ad/138245/2
-# @jax.custom_jvp
-
-
-def safe_exp(x):
-    """torch.exp() but with finite output and gradients for large inputs."""
-    return torch.exp(torch.minimum(x, 88.))  # torch.exp(89) is infinity.
-
-
-# @safe_exp.defjvp
-def safe_exp_jvp(primals, tangents):
-    """Override safe_exp()'s gradient so that it's large when inputs are large."""
-    x, = primals
-    x_dot, = tangents
-    exp_x = safe_exp(x)
-    exp_x_dot = exp_x * x_dot
-    return exp_x, exp_x_dot
 
 
 def log_lerp(t, v0, v1):
@@ -102,11 +78,11 @@ def learning_rate_decay(step,
     return delay_rate * log_lerp(step / max_steps, lr_init, lr_final) / lr_init
 
 
-def interp(*args):
-    """A gather-based (GPU-friendly) vectorized replacement for torch.interp()."""
-    args_flat = [x.reshape([-1, x.shape[-1]]) for x in args]
-    ret = functorch.vmap(torch.interp)(*args_flat).reshape(args[0].shape)
-    return ret
+# def interp(*args):
+#     """A gather-based (GPU-friendly) vectorized replacement for torch.interp()."""
+#     args_flat = [x.reshape([-1, x.shape[-1]]) for x in args]
+#     ret = functorch.vmap(torch.interp)(*args_flat).reshape(args[0].shape)
+#     return ret
 
 
 def sorted_interp(x, xp, fp):
@@ -154,7 +130,11 @@ def interp(x: torch.Tensor, xp: torch.Tensor, fp: torch.Tensor) -> torch.Tensor:
     Details:
         Taken from issue at https://github.com/pytorch/pytorch/issues/50334
     """
-    m = (fp[1:] - fp[:-1]) / (xp[1:] - xp[:-1])
+    x = x.double()
+    xp = xp.double()
+    fp = fp.double()
+
+    m = torch.tensor(fp[1:] - fp[:-1]) / (xp[1:] - xp[:-1])
     b = fp[:-1] - (m * xp[:-1])
 
     indices = torch.sum(torch.ge(x[:, None], xp[None, :]), 1) - 1

@@ -148,7 +148,7 @@ def generate_ide_fn(deg_view):
             [(x + 1j * y)**m for m in ml_array[0, :]], dim=-1)
 
         # Get spherical harmonics.
-        sph_harms = vmxy * math.matmul(vmz, mat)
+        sph_harms = vmxy * torch.matmul(vmz, mat)
 
         # Apply attenuation function using the von Mises-Fisher distribution
         # concentration parameter, kappa.

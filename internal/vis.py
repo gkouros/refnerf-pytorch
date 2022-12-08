@@ -133,16 +133,16 @@ def visualize_rays(dist,
         for d, w, r in zip(ds, ws, rs):
             if accumulate:
                 # Produce the accumulated color and weight at each point along the ray.
-                w_csum = torch.cumsum(w, axis=0)
-                rw_csum = torch.cumsum((r * w[:, None]), axis=0)
+                w_csum = torch.cumsum(w, dim=0)
+                rw_csum = torch.cumsum((r * w[:, None]), dim=0)
                 eps = torch.finfo(torch.float32).eps
                 r, w = (rw_csum + eps) / (w_csum[:, None] + 2 * eps), w_csum
             vis_rs.append(stepfun.resample(dist_vis, d, r.T, use_avg=True).T)
             vis_ws.append(stepfun.resample(dist_vis, d, w.T, use_avg=True).T)
         vis_rgb.append(torch.stack(vis_rs))
         vis_alpha.append(torch.stack(vis_ws))
-    vis_rgb = torch.stack(vis_rgb, axis=1)
-    vis_alpha = torch.stack(vis_alpha, axis=1)
+    vis_rgb = torch.stack(vis_rgb, dim=1)
+    vis_alpha = torch.stack(vis_alpha, dim=1)
 
     if renormalize:
         # Scale the alphas so that the largest value is 1, for visualization.
@@ -207,7 +207,7 @@ def visualize_suite(rendering, rays):
     #   Red: A thin density, then a thick density, [x-delta, x, x+epsilon]
     #   Blue: A thick density, then a thin density, [x-epsilon, x, x+delta]
     depth_triplet = torch.stack([2 * distance_median - distance_p5,
-                                 distance_median, distance_p95], axis=-1)
+                                 distance_median, distance_p95], dim=-1)
     vis_depth_triplet = visualize_cmap(
         depth_triplet, acc, None,
         curve_fn=lambda x: torch.log(x + torch.tensor(torch.finfo(torch.float32).eps)))

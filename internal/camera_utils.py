@@ -549,7 +549,6 @@ def pixels_to_rays(
         pix_to_dir(pix_x_int, pix_y_int + 1)
     ], axis=0)
 
-    matmul = math.matmul if xnp == torch else xnp.matmul
     def mat_vec_mul(A, b):
         return xnp.matmul(A, b[..., None])[..., 0]
 
@@ -578,7 +577,7 @@ def pixels_to_rays(
         ], axis=-1)
 
     # Flip from OpenCV to OpenGL coordinate system.
-    camera_dirs_stacked = matmul(camera_dirs_stacked,
+    camera_dirs_stacked = xnp.matmul(camera_dirs_stacked,
                                  xnp.diag(xnp.array([1., -1., -1.])))
 
     # Extract 2D image plane (x, y) coordinates.

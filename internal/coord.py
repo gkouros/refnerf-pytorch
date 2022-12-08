@@ -128,8 +128,8 @@ def integrated_pos_enc(mean, var, min_deg, max_deg):
 
 def lift_and_diagonalize(mean, cov, basis):
   """Project `mean` and `cov` onto basis and diagonalize the projected cov."""
-  fn_mean = math.matmul(mean, basis)
-  fn_cov_diag = torch.sum(basis * math.matmul(cov, basis), dim=-2)
+  fn_mean = torch.matmul(mean, basis)
+  fn_cov_diag = torch.sum(basis * torch.matmul(cov, basis), dim=-2)
   return fn_mean, fn_cov_diag
 
 
