@@ -14,7 +14,6 @@ conda activate multinerf
 DIR=/users/visics/gkouros/projects/nerf-repos/refnerf-pytorch/
 cd ${DIR}
 
-ENABLE_PRED_ROUGHNESS=True
 DEG_VIEW=5
 RENDER_CHUNK_SIZE=1024
 
@@ -34,7 +33,6 @@ XLA_PYTHON_CLIENT_ALLOCATOR=platform TF_FORCE_GPU_ALLOW_GROWTH='true' python3 re
   --gin_bindings="Config.render_video_fps = 60" \
   --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE" \
   --gin_bindings="NerfMLP.deg_view = $DEG_VIEW" \
-  --gin_bindings="NerfMLP.enable_pred_roughness = $ENABLE_PRED_ROUGHNESS" \
   --logtostderr
 
 conda deactivate
