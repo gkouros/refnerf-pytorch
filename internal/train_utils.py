@@ -110,9 +110,9 @@ def orientation_loss(rays, model, ray_history, config):
             raise ValueError(
                 'Normals cannot be None if orientation loss is on.')
         # Negate viewdirs to represent normalized vectors from point to camera.
-        v = -1. * rays.viewdirs
-        n_dot_v = (n * v[..., None, :]).sum(axis=-1)
-        loss = torch.mean((w * torch.minimum(zero, n_dot_v)**2).sum(axis=-1))
+        v = -rays.viewdirs
+        n_dot_v = (n * v[..., None, :]).sum(dim=-1)
+        loss = torch.mean((w * torch.minimum(zero, n_dot_v)**2).sum(dim=-1))
         if i < model.num_levels - 1:
             total_loss += config.orientation_coarse_loss_mult * loss
         else:
@@ -132,7 +132,7 @@ def predicted_normal_loss(model, ray_history, config):
                 'Predicted normals and gradient normals cannot be None if '
                 'predicted normal loss is on.')
         loss = torch.mean(
-            (w * (1.0 - torch.sum(n * n_pred, axis=-1))).sum(axis=-1))
+            (w * (1.0 - torch.sum(n * n_pred, dim=-1))).sum(dim=-1))
         if i < model.num_levels - 1:
             total_loss += config.predicted_normal_coarse_loss_mult * loss
         else:
@@ -186,17 +186,14 @@ def create_train_step(model: models.Model,
         else:
             rays.to(model.device)
 
-        # Indicates whether we need to compute output normal or depth maps in 2D.
-        compute_extras = (
-            config.compute_disp_metrics or config.compute_normal_metrics)
-
         # clear gradients
         optimizer.zero_grad()
 
         renderings, ray_history = model(
             rays,
             train_frac=train_frac,
-            compute_extras=compute_extras)
+            compute_extras=\
+                config.compute_disp_metrics or config.compute_normal_metrics)
 
         losses = {}
 
@@ -237,9 +234,10 @@ def create_train_step(model: models.Model,
 
         # Clip gradients
         if config.grad_max_val > 0:
-            torch.nn.utils.clip_grad_value_(model.parameters(), clip_value=config.grad_max_value)
+            torch.nn.utils.clip_grad_value_(model.parameters(), clip_value=config.grad_max_val)
         if config.grad_max_norm > 0:
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=config.grad_max_norm)
+
         #TODO: set nan grads to 0
 
         # update the model weights
