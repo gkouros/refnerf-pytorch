@@ -530,8 +530,8 @@ class MLP(nn.Module):
         # get inputs in the form of means and variances representation the ray segments
         means, covs = gaussians
         
-        if self.training:
-            means.requires_grad_()
+        # if self.training:
+        means.requires_grad_()
 
         # lift means and vars of position input
         lifted_means, lifted_vars = (
@@ -549,32 +549,45 @@ class MLP(nn.Module):
             x = self.net_activation(x)
             if i % self.skip_layer == 0 and i > 0:
                 x = torch.concatenate([x, inputs], dim=-1)
+
         raw_density = self.raw_density(x)[..., 0]
 
         # Add noise to regularize the density predictions if needed.
         if self.density_noise > 0:
             raw_density += self.density_noise * torch.normal(0, 1, raw_density.shape)
 
-        # Apply bias and activation to raw density
-        density = self.density_activation(raw_density + self.density_bias)
-
-        # predict normals
-        grad_pred = self.normals_pred(x)
-
-        # Normalize negative predicted gradients to get predicted normal vectors.
-        normals_pred = -ref_utils.l2_normalize(grad_pred)
-
         # calculate normals through density gradients
         if self.disable_density_normals:
             normals = None
-        elif self.training:
-            grad, = torch.autograd.grad(
-                density, means, torch.ones_like(density, device=density.device),
-                retain_graph=True)
-            grad_norm = grad.norm(dim=-1, keepdim=True)
-            normals = -ref_utils.l2_normalize(grad_norm)
+        # elif self.training:
+        #     # https://github.com/Enigmatisms/NeRF/blob/1c535492f89dccb483aa8810106733d2d6a9a52b/py/ref_model.py#L120
+        #     grad, = torch.autograd.grad(
+        #         raw_density, means, torch.ones_like(raw_density),
+        #         retain_graph=True)
+        #     grad_norm = grad.norm(dim=-1, keepdim=True)
+        #     normals = -ref_utils.l2_normalize(grad_norm)
+        # else:
+        #     normals = None
         else:
-            normals = normals_pred
+            # https://github.com/nerfstudio-project/nerfstudio/blob/main/nerfstudio/fields/base_field.py
+            raw_density.backward(
+                gradient=torch.ones_like(raw_density),
+                inputs=means, retain_graph = True)
+            normals = -ref_utils.l2_normalize(means.grad)
+
+        if self.enable_pred_normals:
+            # predict normals
+            grad_pred = self.grad_pred(x)
+            # normalize negative predicted gradients to get predicted normal vectors.
+            normals_pred = -ref_utils.l2_normalize(grad_pred)
+            normals_to_use = normals_pred
+        else:
+            grad_pred = None
+            normals_pred = None
+            normals_to_use = normals
+
+        # Apply bias and activation to raw density
+        density = self.density_activation(raw_density + self.density_bias)
 
         roughness = 0
         if self.disable_rgb:
@@ -612,7 +625,7 @@ class MLP(nn.Module):
                     # whereas ref_utils.reflect() assumes they point toward the camera.
                     # Returned refdirs then point from the point to the environment.
                     refdirs = ref_utils.reflect(
-                        -viewdirs[..., None, :], normals_pred)
+                        -viewdirs[..., None, :], normals_to_use)
                     # Encode reflection directions.
                     dir_enc = self.dir_enc_fn(refdirs, roughness)
                 else:
@@ -630,7 +643,7 @@ class MLP(nn.Module):
                 # Append dot product between normal vectors and view directions.
                 if self.use_n_dot_v:
                     dotprod = torch.sum(
-                        normals_pred * viewdirs[..., None, :],
+                        normals_to_use * viewdirs[..., None, :],
                         dim=-1, keepdims=True)
                     x.append(dotprod)
 
@@ -648,7 +661,8 @@ class MLP(nn.Module):
 
             # If using diffuse/specular colors, then `rgb` is treated as linear
             # specular color. Otherwise it's treated as the color itself.
-            rgb = self.rgb_activation(self.rgb_premultiplier * self.rgb(x) + self.rgb_bias)
+            rgb = self.rgb_activation(
+                self.rgb_premultiplier * self.rgb(x) + self.rgb_bias)
 
             if self.use_diffuse_color:
                 # Initialize linear diffuse color around 0.25, so that the combined
@@ -667,14 +681,24 @@ class MLP(nn.Module):
             # Apply padding, mapping color to [-rgb_padding, 1+rgb_padding].
             rgb = rgb * (1 + 2 * self.rgb_padding) - self.rgb_padding
 
-        return dict(
+        ray_results = dict(
             density=density,
             rgb=rgb,
-            grad_pred=grad_pred,
-            normals_pred=normals_pred,
-            normals=normals,
-            roughness=roughness,
         )
+        if not self.disable_density_normals:
+            ray_results['normals'] = normals
+        if self.enable_pred_normals:
+            ray_results['normals_pred'] = normals_pred
+            ray_results['grad_pred'] = grad_pred
+        if self.use_specular_tint:
+            ray_results['tint'] = tint
+        if self.use_diffuse_color:
+            ray_results['diffuse'] = diffuse_linear
+            ray_results['specular'] = specular_linear
+        if self.enable_pred_roughness:
+            ray_results['roughness'] = roughness
+
+        return ray_results
 
 
 @gin.configurable
