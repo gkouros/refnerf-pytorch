@@ -14,7 +14,6 @@ export LD_LIBRARY_PATH="/usr/local/cuda-11/lib64:/usr/local/cuda/lib64:$CONDA_PR
 DIR=/users/visics/gkouros/projects/nerf-repos/refnerf-pytorch/
 cd ${DIR}
 
-ENABLE_PRED_ROUGHNESS=True
 DEG_VIEW=5
 BATCH_SIZE=1024
 RENDER_CHUNK_SIZE=1024
@@ -41,7 +40,6 @@ python3 train.py \
   --gin_bindings="Config.batch_size = $BATCH_SIZE" \
   --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE" \
   --gin_bindings="NerfMLP.deg_view = $DEG_VIEW" \
-  --gin_bindings="NerfMLP.enable_pred_roughness = $ENABLE_PRED_ROUGHNESS" \
   && \
   python3 render.py \
     --gin_configs="${DIR}/logs/$NAME/$EXP/config.gin" \
@@ -54,7 +52,6 @@ python3 train.py \
     --gin_bindings="Config.batch_size = $BATCH_SIZE" \
     --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE" \
     --gin_bindings="NerfMLP.deg_view = $DEG_VIEW" \
-    --gin_bindings="NerfMLP.enable_pred_roughness = $ENABLE_PRED_ROUGHNESS" \
   && \
   python3 eval.py \
   --gin_configs="${DIR}/logs/$NAME/$EXP/config.gin" \
@@ -62,7 +59,6 @@ python3 train.py \
   --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$NAME/$EXP'" \
   --gin_bindings="Config.batch_size = $BATCH_SIZE" \
   --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE" \
-  --gin_bindings="NerfMLP.deg_view = $DEG_VIEW" \
-  --gin_bindings="NerfMLP.enable_pred_roughness = $ENABLE_PRED_ROUGHNESS"
+  --gin_bindings="NerfMLP.deg_view = $DEG_VIEW"
 
 conda deactivate
