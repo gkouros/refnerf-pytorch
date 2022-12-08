@@ -57,11 +57,14 @@ class Model(nn.Module):
             num_nerf_samples: int = 32,
             num_levels: int = 3,
             bg_intensity_range: Tuple[float] = (1., 1.),
+            anneal_slope: float = 10,
             use_viewdirs: bool = True,
             raydist_fn: Callable[..., Any] = None,
             ray_shape: str = 'cone',
             disable_integration: bool = False,
             single_jitter: bool = True,
+            dilation_bias: float = 0.0025,
+            dilation_multiplier: float = 0.5,
             single_mlp: bool = False,
             resample_padding: float = 0.0,
             opaque_background: bool = False,
@@ -77,11 +80,14 @@ class Model(nn.Module):
             num_nerf_samples (int, optional): The number of samples the final nerf level. Defaults to 32.
             num_levels (int, optional): The number of sampling levels (3==2 proposals, 1 nerf). Defaults to 3.
             bg_intensity_range (Tuple[float], optional): The range of background colors. Defaults to (1., 1.).
+            anneal_slope (float): Higher results in more rapid annealing. Defaults to 10.
             use_viewdirs (bool, optional): If True, use view directions as input. Defaults to True.
             raydist_fn (Callable[..., Any], optional): The curve used for ray dists. Defaults to None.
             ray_shape (str, optional): The shape of cast rays ('cone' or 'cylinder'). Defaults to 'cone'
             disable_integration (bool, optional): If True, use PE instead of IDE. Defaults to False.
             single_jitter (bool, optional): If True, jitter whole rays instead of samples. Defaults to True.
+            dilation_bias (float, optional): How much to dilate intervals absolutely.
+            dilation_multiplier (float, optional): How much to dilate intervals relatively.
             single_mlp (bool, optional): Use the NerfMLP for all rounds of sampling. Defaults to False.
             resample_padding (bool, optional): Dirichlet/alpha "padding" on the histogram. Defaults to 0.
             opaque_background (bool, optional): If true, make the background opaque. Defaults to False.
@@ -94,7 +100,10 @@ class Model(nn.Module):
         self.num_prop_samples = num_prop_samples
         self.num_nerf_samples = num_nerf_samples
         self.num_levels = num_levels
+        self.dilation_bias = dilation_bias
+        self.dilation_multiplier = dilation_multiplier
         self.bg_intensity_range = bg_intensity_range
+        self.anneal_slope = anneal_slope
         self.use_viewdirs = use_viewdirs
         self.raydist_fn = raydist_fn
         self.ray_shape = ray_shape
@@ -140,12 +149,12 @@ class Model(nn.Module):
         # Initialize the range of (normalized) distances for each ray to [0, 1],
         # and assign that single interval a weight of 1. These distances and weights
         # will be repeatedly updated as we proceed through sampling levels.
-        sdist = torch.concatenate([
-            torch.full_like(rays.near.clone().detach(), self.init_s_near),
-            torch.full_like(rays.far.clone().detach(), self.init_s_far)
-        ],
-            axis=-1)
-        weights = torch.ones_like(rays.near.clone().detach())
+        sdist = torch.cat([
+            torch.full_like(rays.near, self.init_s_near),
+            torch.full_like(rays.far, self.init_s_far)
+        ], dim=-1)
+        weights = torch.ones_like(rays.near)
+        prod_num_samples = 1
 
         ray_history = []
         renderings = []
@@ -153,11 +162,44 @@ class Model(nn.Module):
             is_prop = i_level < (self.num_levels - 1)
             num_samples = self.num_prop_samples if is_prop else self.num_nerf_samples
 
+            # Dilate by some multiple of the expected span of each current interval,
+            # with some bias added in.
+            dilation = self.dilation_bias + self.dilation_multiplier * (
+                self.init_s_far - self.init_s_near) / prod_num_samples
+
+            # Record the product of the number of samples seen so far.
+            prod_num_samples *= num_samples
+
+            # After the first level (where dilation would be a no-op) optionally
+            # dilate the interval weights along each ray slightly so that they're
+            # overestimates, which can reduce aliasing.
+            use_dilation = self.dilation_bias > 0 or self.dilation_multiplier > 0
+            if i_level > 0 and use_dilation:
+                sdist, weights = stepfun.max_dilate_weights(
+                    sdist,
+                    weights,
+                    dilation,
+                    domain=(torch.tensor(self.init_s_near),
+                            torch.tensor(self.init_s_far)),
+                    renormalize=True)
+                sdist = sdist[..., 1:-1]
+                weights = weights[..., 1:-1]
+
+            # Optionally anneal the weights as a function of training iteration.
+            if self.anneal_slope > 0:
+                # Schlick's bias function, see https://arxiv.org/abs/2010.09714
+                bias = lambda x, s: (s * x) / ((s - 1) * x + 1)
+                anneal = bias(train_frac, self.anneal_slope)
+            else:
+                anneal = 1.
+
+
             # A slightly more stable way to compute weights**anneal. If the distance
             # between adjacent intervals is zero then its weight is fixed to 0.
             logits_resample = torch.where(
                 sdist[..., 1:] > sdist[..., :-1],
-                torch.log(weights + self.resample_padding), -float('inf'))
+                anneal * torch.log(weights + self.resample_padding),
+                -torch.tensor(float('inf')))
 
             # Draw sampled intervals from each ray's current weights.
             # Optimization will usually go nonlinear if you propagate gradients
@@ -187,6 +229,7 @@ class Model(nn.Module):
                 # Setting the covariance of our Gaussian samples to 0 disables the
                 # "integrated" part of integrated positional encoding.
                 gaussians = (gaussians[0], torch.zeros_like(gaussians[1]))
+
 
             # Push our Gaussians through one of our two MLPs.
             mlp = self.prop_mlp if is_prop else self.nerf_mlp
