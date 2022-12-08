@@ -89,7 +89,7 @@ def lossfun_outer(t, w, t_env, w_env, eps=torch.finfo(torch.float32).eps):
     return torch.maximum(torch.tensor(.0), w - w_outer)**2 / (w + eps)
 
 
-def weight_to_pdf(t, w, eps=torch.finfo(torch.float32).eps**2):
+def weight_to_pdf(t, w, eps=torch.tensor(torch.finfo(torch.float32).eps**2)):
     """Turn a vector of weights that sums to 1 into a PDF that integrates to 1."""
     return w / torch.maximum(eps, (t[..., 1:] - t[..., :-1]))
 
@@ -99,20 +99,18 @@ def pdf_to_weight(t, p):
     return p * (t[..., 1:] - t[..., :-1])
 
 
-def max_dilate(t, w, dilation, domain=(-float('inf'), float('inf'))):
+def max_dilate(t, w, dilation, domain=(-torch.tensor(float('inf')),
+                                       torch.tensor(float('inf')))):
     """Dilate (via max-pooling) a non-negative step function."""
     t0 = t[..., :-1] - dilation
     t1 = t[..., 1:] + dilation
-    t_dilate = torch.sort(torch.cat([t, t0, t1], dim=-1), dim=-1)
+    t_dilate = torch.sort(torch.cat([t, t0, t1], dim=-1), dim=-1).values
     t_dilate = torch.clip(t_dilate, *domain)
     w_dilate = torch.max(
         torch.where(
             (t0[..., None, :] <= t_dilate[..., None])
             & (t1[..., None, :] > t_dilate[..., None]),
-            w[..., None, :],
-            0,
-        ),
-        dim=-1)[..., :-1]
+            w[..., None, :], 0), dim=-1).values[..., :-1]
     return t_dilate, w_dilate
 
 
@@ -120,9 +118,9 @@ def max_dilate_weights(
         t,
         w,
         dilation,
-        domain=(-float('inf'), float('inf')),
+        domain=(-torch.tensor(float('inf')), torch.tensor(float('inf'))),
         renormalize=False,
-        eps=torch.finfo(torch.float32).eps**2):
+        eps=torch.tensor(torch.finfo(torch.float32).eps**2)):
     """Dilate (via max-pooling) a set of weights."""
     p = weight_to_pdf(t, w)
     t_dilate, p_dilate = max_dilate(t, p, dilation, domain=domain)
@@ -194,7 +192,7 @@ def sample(
     Returns:
       t_samples: torch.ndarray(float32), [batch_size, num_samples].
     """
-    eps = torch.finfo(torch.float32).eps
+    eps = torch.tensor(torch.finfo(torch.float32).eps)
 
     # Draw uniform samples.
     # Match the behavior of jax.random.uniform() by spanning [0, 1-eps].
@@ -204,6 +202,7 @@ def sample(
     else:
         u = torch.linspace(0, 1. - eps, num_samples)
     u = torch.broadcast_to(u, t.shape[:-1] + (num_samples,))
+
     return invert_cdf(u, t, w_logits, use_gpu_resampling=use_gpu_resampling)
 
 
@@ -212,7 +211,7 @@ def sample_intervals(
     w_logits,
     num_samples,
     single_jitter=False,
-    domain=(-float('inf'), float('inf')),
+    domain=(-torch.tensor(float('inf')), torch.tensor(float('inf'))),
     use_gpu_resampling=False
 ):
     """Sample *intervals* (rather than points) from a step function.
