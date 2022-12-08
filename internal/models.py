@@ -460,28 +460,22 @@ class MLP(nn.Module):
         if self.use_directional_enc:
             self.dir_enc_fn = ref_utils.generate_ide_fn(self.deg_view)
         else:
-
             def dir_enc_fn(direction, _):
                 return coord.pos_enc(
-                    direction, min_deg=0, max_deg=self.deg_view, append_identity=True)
-
+                    direction, min_deg=0, max_deg=self.deg_view,
+                    append_identity=True)
             self.dir_enc_fn = dir_enc_fn
 
-        ############################ Spatial MLP ###############################
-        spatial_layers = [nn.LazyLinear(self.net_width)]
-        for i in range(self.net_depth - 1):
-            spatial_layers += [
-               nn.LazyLinear(self.net_width)
-               if i % self.skip_layer == 0 and i > 0
-               else nn.Linear(self.net_width, self.net_width)
-            ]
-        self.spatial_net = nn.ModuleList(spatial_layers)
+        # spatial MLP
+        self.spatial_net = nn.ModuleList(
+            [nn.LazyLinear(self.net_width) for i in range(self.net_depth)])
 
         # raw density layer
         self.raw_density = nn.Linear(self.net_width, 1)
 
         # predicted normals
-        self.normals_pred = nn.Linear(self.net_width, 3)
+        if self.enable_pred_normals:
+            self.grad_pred = nn.Linear(self.net_width, 3)
 
         # roughness layer
         if self.enable_pred_roughness:
@@ -499,19 +493,13 @@ class MLP(nn.Module):
         if self.bottleneck_width > 0:
             self.bottleneck = nn.Linear(self.net_width, self.bottleneck_width)
 
-        ########################## Directional MLP #############################
-        viewdir_layers = [nn.LazyLinear(self.net_width_viewdirs)]
-        for i in range(self.net_depth_viewdirs-1):
-            viewdir_layers += [
-               nn.LazyLinear(self.net_width_viewdirs)
-               if i % self.skip_layer_dir == 0 and i > 0
-               else nn.Linear(self.net_width_viewdirs, self.net_width_viewdirs)
-            ]
-        self.viewdir_mlp = nn.ModuleList(viewdir_layers)
+        # directional MLP
+        self.viewdir_mlp = nn.ModuleList(
+            [nn.LazyLinear(self.net_width_viewdirs)
+             for i in range(self.net_depth_viewdirs)])
 
         # rgb layer
         self.rgb = nn.LazyLinear(self.num_rgb_channels)
-
 
     def __call__(self,
                  gaussians,
