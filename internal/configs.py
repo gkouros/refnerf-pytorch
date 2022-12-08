@@ -29,6 +29,7 @@ gin.add_config_file_search_path('experimental/users/barron/mipnerf360/')
 class Config:
   """Configuration flags for everything."""
   dataset_loader: str = 'llff'  # The type of dataset loader to use.
+  dataset_debug_mode: bool = False  # If True, always loads specific batch
   batching: str = 'all_images'  # Batch composition, [single_image, all_images].
   batch_size: int = 16384  # The number of rays/pixels in each batch.
   patch_size: int = 1  # Resolution of patches sampled for training batches.

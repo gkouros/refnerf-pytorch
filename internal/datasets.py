@@ -261,6 +261,7 @@ class Dataset(threading.Thread, metaclass=abc.ABCMeta):
         self._test_camera_idx = 0
         self._cast_rays_in_train_step = config.cast_rays_in_train_step
         self._render_spherical = False
+        self._debug_mode = config.dataset_debug_mode
 
         self.split = utils.DataSplit(split)
         self.data_dir = data_dir
@@ -429,24 +430,33 @@ class Dataset(threading.Thread, metaclass=abc.ABCMeta):
         num_patches = self._batch_size // self._patch_size ** 2
         lower_border = 0
         upper_border = self._patch_size - 1
-        # Random pixel patch x-coordinates.
-        pix_x_int = np.random.randint(lower_border, self.width - upper_border,
-                                      (num_patches, 1, 1))
-        # Random pixel patch y-coordinates.
-        pix_y_int = np.random.randint(lower_border, self.height - upper_border,
-                                      (num_patches, 1, 1))
-        # Add patch coordinate offsets.
-        # Shape will broadcast to (num_patches, _patch_size, _patch_size).
-        patch_dx_int, patch_dy_int = camera_utils.pixel_coordinates(
-            self._patch_size, self._patch_size)
-        pix_x_int = pix_x_int + patch_dx_int
-        pix_y_int = pix_y_int + patch_dy_int
-        # Random camera indices.
-        if self._batching == utils.BatchingMethod.ALL_IMAGES:
-            cam_idx = np.random.randint(
-                0, self._n_examples, (num_patches, 1, 1))
+
+        if self._debug_mode:
+            xs = range(lower_border, self.width - upper_border)
+            ys = range(lower_border, self.height - upper_border)
+            pixels = np.meshgrid(xs, ys)
+            pix_x_int = pixels[0].ravel()[:num_patches].reshape(-1, 1, 1)
+            pix_y_int = pixels[1].ravel()[:num_patches].reshape(-1, 1, 1)
+            cam_idx = np.repeat(0, num_patches).reshape(-1, 1, 1)
         else:
-            cam_idx = np.random.randint(0, self._n_examples, (1,))
+            # Random pixel patch x-coordinates.
+            pix_x_int = np.random.randint(lower_border, self.width - upper_border,
+                                        (num_patches, 1, 1))
+            # Random pixel patch y-coordinates.
+            pix_y_int = np.random.randint(lower_border, self.height - upper_border,
+                                        (num_patches, 1, 1))
+            # Add patch coordinate offsets.
+            # Shape will broadcast to (num_patches, _patch_size, _patch_size).
+            patch_dx_int, patch_dy_int = camera_utils.pixel_coordinates(
+                self._patch_size, self._patch_size)
+            pix_x_int = pix_x_int + patch_dx_int
+            pix_y_int = pix_y_int + patch_dy_int
+            # Random camera indices.
+            if self._batching == utils.BatchingMethod.ALL_IMAGES:
+                cam_idx = np.random.randint(
+                    0, self._n_examples, (num_patches, 1, 1))
+            else:
+                cam_idx = np.random.randint(0, self._n_examples, (1,))
 
         return self._make_ray_batch(pix_x_int, pix_y_int, cam_idx, lossmult=None)
 
@@ -466,8 +476,12 @@ class Dataset(threading.Thread, metaclass=abc.ABCMeta):
     def _next_test(self) -> utils.Batch:
         """Sample next test batch (one full image)."""
         # Use the next camera index.
-        cam_idx = self._test_camera_idx
-        self._test_camera_idx = (self._test_camera_idx + 1) % self._n_examples
+        if self._debug_mode:
+            cam_idx = 0
+            self._test_camera_idx = 0
+        else:
+            cam_idx = self._test_camera_idx
+            self._test_camera_idx = (self._test_camera_idx + 1) % self._n_examples
         return self.generate_ray_batch(cam_idx)
 
 
