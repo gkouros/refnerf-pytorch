@@ -20,6 +20,7 @@ import sys
 import gc
 import time
 import numpy as np
+import random
 import torch
 import flatdict
 import logging.config
@@ -52,6 +53,11 @@ def main(unused_argv):
     else:
         device = torch.device('cpu')
         torch.set_default_tensor_type('torch.FloatTensor')
+
+    # set random seeds for reproducibility
+    torch.manual_seed(0)
+    random.seed(0)
+    np.random.seed(0)
 
     # load training and test sets
     dataset = datasets.load_dataset('train', config.data_dir, config)
@@ -116,6 +122,7 @@ def main(unused_argv):
 
     # start training loop
     for step, batch in zip(range(init_step, num_steps + 1), dataset):
+
         model.train()
 
         # clear stats for this iteration
@@ -141,9 +148,6 @@ def main(unused_argv):
             # Disable automatic garbage collection for efficiency.
             # gc.collect()
 
-        # Log training summaries
-        stats_buffer.append(stats)
-
         #TODO: Redundant?
         del batch
         gc.collect()
@@ -153,6 +157,9 @@ def main(unused_argv):
         model.eval()
 
         with torch.no_grad():
+
+            # Log training summaries
+            stats_buffer.append(stats)
 
             if step == init_step or step % config.print_every == 0:
 
@@ -166,8 +173,8 @@ def main(unused_argv):
                 approx_total_time = int(round(step * total_time / total_steps))
 
                 # Stack stats_buffer along axis 0.
-                fs = dict(flatdict.FlatDict(stats_buffer[0], delimiter='/'))
-                stats_stacked = {k: fs[k][None, ...] for k in fs.keys()}
+                fs = [dict(flatdict.FlatDict(s, delimiter='/')) for s in stats_buffer]
+                stats_stacked = {k: torch.stack([f[k] for f in fs]) for k in fs[0].keys()}
 
                 # Split every statistic that isn't a vector into a set of statistics.
                 stats_split = {}
@@ -262,7 +269,7 @@ def main(unused_argv):
 
                 vis_start_time = time.time()
                 vis_suite = vis.visualize_suite(rendering, test_case.rays)
-                logging.info(f'Visualized in {(time.time() - vis_start_time):0.3f}s')                
+                logging.info(f'Visualized in {(time.time() - vis_start_time):0.3f}s')
                 summary_writer.add_image(
                     'test_true_color', test_case.rgb, step, dataformats='HWC')
                 if config.compute_normal_metrics:
