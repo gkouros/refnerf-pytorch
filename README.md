@@ -267,8 +267,16 @@ and the Dataset thread will automatically be killed since it is a daemon.
 
 
 ## Citation
-If you use this software package, please cite the paper, the current codebase,
-and the original codebase:
+If you use this software package or build on top of it, please use the following citation:
+```
+@misc{refnerf-pytorch,
+      title={refnerf-pytorch: A port of Ref-NeRF from jax to pytorch},
+      author={Georgios Kouros},
+      year={2022},
+      url={https://github.com/google-research/refnerf-pytorch},
+}
+```
+## References
 ```
 @article{verbin2022refnerf,
     title={{Ref-NeRF}: Structured View-Dependent Appearance for
@@ -277,14 +285,6 @@ and the original codebase:
             Todd Zickler and Jonathan T. Barron and Pratul P. Srinivasan},
     journal={CVPR},
     year={2022}
-}
-```
-```
-@misc{refnerf-pytorch,
-      title={refnerf-pytorch: A port of Ref-NeRF from jax to pytorch},
-      author={Georgios Kouros},
-      year={2022},
-      url={https://github.com/google-research/refnerf-pytorch},
 }
 ```
 ```
