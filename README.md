@@ -1,4 +1,4 @@
-# refnerf-pytorch: A port of Ref-NeRF from jax to pytorch
+# refnerf-pytorch: An unofficial port of the JAX-based Ref-NeRF code release to PyTorch
 
 You can find the original jax version released by Google at [https://github.com/google-research/multinerf](https://github.com/google-research/multinerf)
 
