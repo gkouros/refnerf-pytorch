@@ -212,8 +212,6 @@ def visualize_suite(rendering, rays):
         depth_triplet, acc, None,
         curve_fn=lambda x: torch.log(x + torch.tensor(torch.finfo(torch.float32).eps)))
 
-    """ START HERE AND VERIFY THAT EVERYTHING IS AS EXPECTED """
-
     dist = rendering['ray_sdist']
     dist_range = (0, 1)
     weights = rendering['ray_weights']
@@ -270,5 +268,11 @@ def visualize_suite(rendering, rays):
 
     if 'roughness' in rendering:
         vis['roughness'] = matte(torch.tanh(rendering['roughness']), acc)
+    if 'diffuse' in rendering:
+        vis['diffuse'] = rendering['diffuse']
+    if 'specular' in rendering:
+        vis['specular'] = rendering['specular']
+    if 'tint' in rendering:
+        vis['tint'] = rendering['tint']
 
     return vis
