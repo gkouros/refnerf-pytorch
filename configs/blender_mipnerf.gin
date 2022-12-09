@@ -25,6 +25,8 @@ Model.num_levels = 1
 Model.single_mlp = True
 Model.num_prop_samples = 128  # This needs to be set despite single_mlp = True.
 Model.num_nerf_samples = 128
+Model.dilation_multiplier = 0.
+Model.dilation_bias = 0.
 Model.single_jitter = False
 Model.resample_padding = 0.01
 
