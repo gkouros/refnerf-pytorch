@@ -530,8 +530,8 @@ class MLP(nn.Module):
         # get inputs in the form of means and variances representation the ray segments
         means, covs = gaussians
         
-        # if self.training:
-        means.requires_grad_()
+        if self.training:
+            means.requires_grad_()
 
         # lift means and vars of position input
         lifted_means, lifted_vars = (
@@ -557,8 +557,7 @@ class MLP(nn.Module):
             raw_density += self.density_noise * torch.normal(0, 1, raw_density.shape)
 
         # calculate normals through density gradients
-        if self.disable_density_normals:
-            normals = None
+        normals = None
         # elif self.training:
         #     # https://github.com/Enigmatisms/NeRF/blob/1c535492f89dccb483aa8810106733d2d6a9a52b/py/ref_model.py#L120
         #     grad, = torch.autograd.grad(
@@ -568,7 +567,7 @@ class MLP(nn.Module):
         #     normals = -ref_utils.l2_normalize(grad_norm)
         # else:
         #     normals = None
-        else:
+        if not self.disable_density_normals and self.training:
             # https://github.com/nerfstudio-project/nerfstudio/blob/main/nerfstudio/fields/base_field.py
             raw_density.backward(
                 gradient=torch.ones_like(raw_density),
@@ -731,6 +730,7 @@ def render_image(render_fn: Callable[[torch.tensor, utils.Rays],
       disp: torch.tensor, rendered disparity image.
       acc: torch.tensor, rendered accumulated weights per pixel.
     """
+    torch.cuda.synchronize()
     height, width = rays.origins.shape[:2]
     num_rays = height * width
     rays = rays.reshape(num_rays, -1)
@@ -750,7 +750,17 @@ def render_image(render_fn: Callable[[torch.tensor, utils.Rays],
             if k.startswith('ray_'):
                 chunk_rendering[k] = [r[k] for r in chunk_renderings]
 
+        def recursive_detach(v: [list, torch.Tensor]):
+            if isinstance(v, torch.Tensor):
+                return v.detach()
+            elif isinstance(v, list):
+                return [recursive_detach(vk) for vk in v]
+            else:
+                raise ValueError('Invalid input. v must be torch.Tensor or list')
+
+        chunk_rendering = {k: recursive_detach(v) for k, v in chunk_rendering.items()}
         chunks.append(chunk_rendering)
+
 
     # Concatenate all chunks
     def merge_chunks(chunks):
@@ -766,7 +776,7 @@ def render_image(render_fn: Callable[[torch.tensor, utils.Rays],
             else:
                 raise ValueError('Contents should be either list or tensor')
         return merged_chunks
-        
+
     rendering = merge_chunks(chunks)
 
     # reshape renderings 2D images
