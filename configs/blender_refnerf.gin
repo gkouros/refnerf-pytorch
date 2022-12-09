@@ -15,15 +15,16 @@ Config.interlevel_loss_mult = 0
 Config.data_coarse_loss_mult = 0.1
 Config.adam_beta1 = 0.9
 Config.adam_beta2 = 0.999
-Config.adam_eps = 1e-6
-Config.batch_size = 8192
-Config.render_chunk_size = 8192
+Config.adam_eps = 1e-8
+Config.batch_size = 16384
+Config.render_chunk_size = 16384
 Config.max_steps = 250000
 
 Model.num_levels = 2
 Model.single_mlp = True
 Model.num_prop_samples = 128  # This needs to be set despite single_mlp = True.
 Model.num_nerf_samples = 128
+Model.anneal_slope = 0.
 Model.dilation_multiplier = 0.
 Model.dilation_bias = 0.
 Model.single_jitter = False
@@ -44,6 +45,6 @@ NerfMLP.use_diffuse_color = True
 NerfMLP.use_specular_tint = True
 NerfMLP.use_n_dot_v = True
 NerfMLP.bottleneck_width = 128
-NerfMLP.bottleneck_noise = 0
+NerfMLP.bottleneck_noise = 0.
 NerfMLP.density_bias = 0.5
 NerfMLP.max_deg_point = 16

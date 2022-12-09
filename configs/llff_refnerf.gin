@@ -1,8 +1,8 @@
 Config.dataset_loader = 'llff'
 Config.batching = 'all_images'
 Config.llff_white_background = True
-Config.near = 0.
-Config.far = 1.
+Config.near = 0.2
+Config.far = 1e6
 Config.factor = 4
 Config.forward_facing = False
 Config.eval_render_interval = 5
@@ -17,8 +17,10 @@ Config.predicted_normal_coarse_loss_mult = 3e-5
 Config.interlevel_loss_mult = 0.0
 Config.data_coarse_loss_mult = 0.1
 Config.adam_eps = 1e-8
-Config.batch_size = 1024
-Config.render_chunk_size = 1024
+Config.batch_size = 16384
+Config.render_chunk_size = 16384
+Config.max_steps = 250000
+
 
 Model.num_levels = 2
 Model.single_mlp = True
@@ -30,7 +32,7 @@ Model.dilation_bias = 0.
 Model.single_jitter = False
 Model.resample_padding = 0.01
 Model.opaque_background = False
-Model.ray_shape = 'cylinder'
+Model.ray_shape = 'cone'
 
 NerfMLP.net_depth = 8
 NerfMLP.net_width = 256
@@ -47,5 +49,6 @@ NerfMLP.use_diffuse_color = True
 NerfMLP.use_specular_tint = True
 NerfMLP.use_n_dot_v = True
 NerfMLP.bottleneck_width = 128
+NerfMLP.bottleneck_noise = 0.
 NerfMLP.density_bias = 0.5
 NerfMLP.max_deg_point = 16
