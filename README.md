@@ -267,8 +267,8 @@ and the Dataset thread will automatically be killed since it is a daemon.
 
 
 ## Citation
-If you use this software package, please cite the paper, the original codebase,
-and the current codebase:
+If you use this software package, please cite the paper, the current codebase,
+and the original codebase:
 ```
 @article{verbin2022refnerf,
     title={{Ref-NeRF}: Structured View-Dependent Appearance for
