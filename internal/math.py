@@ -133,8 +133,7 @@ def interp(x: torch.Tensor, xp: torch.Tensor, fp: torch.Tensor) -> torch.Tensor:
     x = x.double()
     xp = xp.double()
     fp = fp.double()
-
-    m = torch.tensor(fp[1:] - fp[:-1]) / (xp[1:] - xp[:-1])
+    m = (fp[1:] - fp[:-1]) / (xp[1:] - xp[:-1])
     b = fp[:-1] - (m * xp[:-1])
 
     indices = torch.sum(torch.ge(x[:, None], xp[None, :]), 1) - 1
