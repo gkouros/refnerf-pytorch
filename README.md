@@ -1,33 +1,30 @@
-# MultiNeRF: A Code Release for Mip-NeRF 360, Ref-NeRF, and RawNeRF
+# refnerf-pytorch: A port of Ref-NeRF from jax to pytorch
+
+You can find the original jax version released by Google at [https://github.com/google-research/multinerf](https://github.com/google-research/multinerf)
 
 *This is not an officially supported Google product.*
 
-This repository contains the code release for three CVPR 2022 papers:
-[Mip-NeRF 360](https://jonbarron.info/mipnerf360/),
-[Ref-NeRF](https://dorverbin.github.io/refnerf/), and
-[RawNeRF](https://bmild.github.io/rawnerf/).
-This codebase was written by
-integrating our internal implementations of Ref-NeRF and RawNeRF into our
-mip-NeRF 360 implementation. As such, this codebase should exactly
-reproduce the results shown in mip-NeRF 360, but may differ slightly when
-reproducing Ref-NeRF or RawNeRF results.
+This repository contains the code release for the CVPR2022 Ref-NeRF paper:
+[Ref-NeRF](https://dorverbin.github.io/refnerf/)
+This codebase was adapted from the [multinerf](https://github.com/google/multinerf)
+code release that combines the mip-NeRF-360, Raw-NeRF, Ref-NeRF papers from CVPR 2022.
+The original release for Ref-NeRF differs from the Google's internal codebase that was
+used for the paper and since it's a port from [JAX](https://github.com/google/jax)
+to [PyTorch](https://github.com/pytorch/pytorch) the results might be different.
 
-This implementation is written in [JAX](https://github.com/google/jax), and
-is a fork of [mip-NeRF](https://github.com/google/mipnerf).
 This is research code, and should be treated accordingly.
 
 ## Setup
 
 ```
 # Clone the repo.
-git clone https://github.com/google-research/multinerf.git
-cd multinerf
+git clone https://github.com/gkouros/refnerf-pytorch.git
+cd refnerf-pytorch
 
 # Make a conda environment.
 conda create --name refnerf python=3.9
 conda activate refnerf
 conda install pytorch torchvision torchaudio pytorch-cuda=11.6 -c pytorch -c nvidia
-
 
 # Prepare pip.
 conda install pip
@@ -39,10 +36,9 @@ pip install -r requirements.txt
 # Manually install rmbrualla's `pycolmap` (don't use pip's! It's different).
 git clone https://github.com/rmbrualla/pycolmap.git ./internal/pycolmap
 
-# Confirm that all the unit tests pass.
+# Confirm that all the unit tests pass. Scripts have not been ported to PyTorch yet.
 ./scripts/run_all_unit_tests.sh
 ```
-You'll probably also need to update your JAX installation to support GPUs or TPUs.
 
 ## Running
 
@@ -70,10 +66,10 @@ Summary: first, calculate poses. Second, train MultiNeRF. Third, render a result
 DATA_DIR=my_dataset_dir
 bash scripts/local_colmap_and_resize.sh ${DATA_DIR}
 ```
-2. Training MultiNeRF:
+2. Training Ref-NeRF:
 ```
 python -m train \
-  --gin_configs=configs/360.gin \
+  --gin_configs=configs/llff_refnerf.gin \
   --gin_bindings="Config.data_dir = '${DATA_DIR}'" \
   --gin_bindings="Config.checkpoint_dir = '${DATA_DIR}/checkpoints'" \
   --logtostderr
@@ -81,7 +77,7 @@ python -m train \
 3. Rendering MultiNeRF:
 ```
 python -m render \
-  --gin_configs=configs/360.gin \
+  --gin_configs=configs/render_config.gin \
   --gin_bindings="Config.data_dir = '${DATA_DIR}'" \
   --gin_bindings="Config.checkpoint_dir = '${DATA_DIR}/checkpoints'" \
   --gin_bindings="Config.render_dir = '${DATA_DIR}/render'" \
@@ -119,7 +115,7 @@ my_dataset_dir/sparse/0/  <--- COLMAP sparse reconstruction files (cameras, imag
 
 If you already have poses for your own data, you may prefer to write your own custom dataloader.
 
-MultiNeRF includes a variety of dataloaders, all of which inherit from the
+Ref-NeRF includes a variety of dataloaders, all of which inherit from the
 base
 [Dataset class](https://github.com/google-research/multinerf/blob/main/internal/datasets.py#L152).
 
@@ -197,7 +193,7 @@ The most common conventions are
 -   `[right, down, forwards]`: OpenCV, COLMAP, most computer vision code.
 
 Fortunately switching from OpenCV/COLMAP to NeRF is
-[simple](https://github.com/google-research/multinerf/blob/main/internal/datasets.py#L108):
+[simple](https://github.com/gkouros/refnerf-pytorch/blob/main/internal/datasets.py#L108):
 you just need to right-multiply the OpenCV pose matrices by `np.diag([1, -1, -1, 1])`,
 which will flip the sign of the y-axis (from down to up) and z-axis (from
 forwards to backwards):
@@ -271,9 +267,25 @@ and the Dataset thread will automatically be killed since it is a daemon.
 
 
 ## Citation
-If you use this software package, please cite whichever constituent paper(s)
-you build upon, or feel free to cite this entire codebase as:
-
+If you use this software package, please cite the paper, the original codebase,
+and the current codebase:
+```
+@article{verbin2022refnerf,
+    title={{Ref-NeRF}: Structured View-Dependent Appearance for
+           Neural Radiance Fields},
+    author={Dor Verbin and Peter Hedman and Ben Mildenhall and
+            Todd Zickler and Jonathan T. Barron and Pratul P. Srinivasan},
+    journal={CVPR},
+    year={2022}
+}
+```
+@misc{refnerf-pytorch,
+      title={refnerf-pytorch: A port of Ref-NeRF from jax to pytorch},
+      author={Georgios Kouros},
+      year={2022},
+      url={https://github.com/google-research/refnerf-pytorch},
+}
+```
 ```
 @misc{multinerf2022,
       title={{MultiNeRF}: {A} {Code} {Release} for {Mip-NeRF} 360, {Ref-NeRF}, and {RawNeRF}},
