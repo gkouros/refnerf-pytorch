@@ -279,6 +279,7 @@ and the current codebase:
     year={2022}
 }
 ```
+```
 @misc{refnerf-pytorch,
       title={refnerf-pytorch: A port of Ref-NeRF from jax to pytorch},
       author={Georgios Kouros},
