@@ -87,7 +87,7 @@ def convert_to_ndc(origins: _Array,
 
     # Perspective projection into NDC for the t = infinity far points
     #     origins + infinity * directions
-    infinity_ndc = np.stack([xmult * dx / dz, ymult * dy / dz,
+    infinity_ndc = xnp.stack([xmult * dx / dz, ymult * dy / dz,
                              xnp.ones_like(oz)],
                             axis=-1)
 
@@ -599,8 +599,8 @@ def pixels_to_rays(
 
     else:
         # Convert ray origins and directions into projective NDC space.
-        origins_dx, _ = convert_to_ndc(origins, dx, pixtocam_ndc)
-        origins_dy, _ = convert_to_ndc(origins, dy, pixtocam_ndc)
+        origins_dx, _ = convert_to_ndc(origins, dx, pixtocam_ndc, xnp)
+        origins_dy, _ = convert_to_ndc(origins, dy, pixtocam_ndc, xnp)
         origins, directions = convert_to_ndc(origins, directions, pixtocam_ndc)
 
         # In NDC space, we use the offset between origins instead of directions.
