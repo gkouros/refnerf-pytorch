@@ -19,6 +19,7 @@ import functools
 import glob
 import os
 import time
+import gc
 
 from absl import app
 import torch
@@ -102,16 +103,43 @@ def main(unused_argv):
 
     config = configs.load_config(save_config=False)
 
+    # Setup device.
+    if torch.cuda.is_available():
+        device = torch.device('cuda')
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    else:
+        device = torch.device('cpu')
+        torch.set_default_tensor_type('torch.FloatTensor')
+
+    # Create test dataset.
     dataset = datasets.load_dataset('test', config.data_dir, config)
 
+    # Set random number generator seeds.
     torch.manual_seed(20221019)
     np.random.seed(20221019)
 
-    _, state, render_eval_pfn, _, _ = train_utils.setup_model(config)
-    checkpoint = torch.load(config.checkpoint_dir)
-    # TODO: load states from checkpoint
+    # Create model.
+    setup = train_utils.setup_model(config, dataset=dataset)
+    model, _, _, render_eval_fn, _ = setup
+    state = dict(step=0, model=model.state_dict())
 
-    step = int(state.step)
+    # Load states from checkpoint.
+    if utils.isdir(config.checkpoint_dir):
+        files = sorted([f for f in os.listdir(config.checkpoint_dir)
+                        if f.startswith('checkpoint')],
+                       key=lambda x: int(x.split('_')[-1]))
+        # if there are checkpoints in the dir, load the latest checkpoint
+        if files:
+            checkpoint_name = files[-1]
+            state = torch.load(os.path.join(
+                config.checkpoint_dir, checkpoint_name))
+            model.load_state_dict(state['model'])
+            model.eval()
+            model.to(device)
+    else:
+        utils.makedirs(config.checkpoint_dir)
+
+    step = int(state['step'])
     print(f'Rendering checkpoint at step {step}.')
 
     out_name = 'path_renders' if config.render_path else 'test_preds'
@@ -128,6 +156,7 @@ def main(unused_argv):
 
     # Ensure sufficient zero-padding of image indices in output filenames.
     zpad = max(3, len(str(dataset.size - 1)))
+
     def idx_to_str(idx):
         return str(idx).zfill(zpad)
 
@@ -154,11 +183,14 @@ def main(unused_argv):
             continue
         print(f'Evaluating image {idx+1}/{dataset.size}')
         eval_start_time = time.time()
-        rays = dataset.generate_ray_batch(idx).rays
+        batch = dataset.generate_ray_batch(idx)
         train_frac = 1.
-        rendering = models.render_image(
-            functools.partial(render_eval_pfn, state.params, train_frac),
-            rays, None, config)
+
+        with torch.no_grad():
+            rendering = models.render_image(
+                functools.partial(render_eval_fn, train_frac),
+                batch.rays, config)
+
         print(f'Rendered in {(time.time() - eval_start_time):0.3f}s')
 
         save_fn(
@@ -180,18 +212,7 @@ def main(unused_argv):
                 f'rho_{idx_str}.png'),
             mask=rendering['acc'])
 
-    if config.render_save_async:
-        # Wait until all worker threads finish.
-        async_executor.shutdown(wait=True)
-
-        # This will ensure that exceptions in child threads are raised to the
-        # main thread.
-        for future in async_futures:
-            future.result()
-
-    time.sleep(1)
     num_files = len(glob.glob(path_fn('acc_*.tiff')))
-    time.sleep(10)
     if num_files == dataset.size:
         print(
             f'All files found, creating videos (job {config.render_job_id}).')
