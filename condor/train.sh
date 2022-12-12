@@ -49,7 +49,6 @@ python3 train.py \
     --gin_bindings="Config.render_path = $RENDER_PATH" \
     --gin_bindings="Config.render_path_frames = 480" \
     --gin_bindings="Config.render_video_fps = 60" \
-    --gin_bindings="Config.batch_size = $BATCH_SIZE" \
     --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE" \
     --gin_bindings="NerfMLP.deg_view = $DEG_VIEW" \
   && \
@@ -57,7 +56,6 @@ python3 train.py \
   --gin_configs="${DIR}/logs/$NAME/$EXP/config.gin" \
   --gin_bindings="Config.data_dir = '${DIR}/data/$NAME'" \
   --gin_bindings="Config.checkpoint_dir = '${DIR}/logs/$NAME/$EXP'" \
-  --gin_bindings="Config.batch_size = $BATCH_SIZE" \
   --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE" \
   --gin_bindings="NerfMLP.deg_view = $DEG_VIEW"
 
