@@ -38,12 +38,13 @@ from internal import train_utils
 from internal import utils
 from internal import vis
 
-FLAGS = flags.FLAGS
 configs.define_common_flags()
+FLAGS = flags.FLAGS
 TIME_PRECISION = 1000  # Internally represent integer times in milliseconds.
 
 
 def main(unused_argv):
+    # load config file and save params to checkpoint folder
     config = configs.load_config()
 
     # setup device
@@ -79,7 +80,7 @@ def main(unused_argv):
     # load saved checkpoint or create checkpoint dir if not there
     if utils.isdir(config.checkpoint_dir):
         files = sorted([f for f in os.listdir(config.checkpoint_dir)
-                 if f.startswith('checkpoint')], key=lambda x: x.split('_')[-1])
+                 if f.startswith('checkpoint')], key=lambda x: int(x.split('_')[-1]))
         # if there are checkpoints in the dir, load the latest checkpoint
         if files:
             checkpoint_name = files[-1]
