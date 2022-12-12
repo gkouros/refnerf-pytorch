@@ -115,7 +115,7 @@ def color_correct(img, ref, num_iters=5, eps=0.5 / 255):
       mb = torch.where(mask, b, 0)
       # Solve the linear system. We're using the np.lstsq instead of torch because
       # it's significantly more stable in this case, for some reason.
-      w = np.linalg.lstsq(ma_mat, mb, rcond=-1)[0]
+      w = torch.linalg.lstsq(ma_mat, mb, rcond=-1)[0]
       assert torch.all(torch.isfinite(w))
       warp.append(w)
     warp = torch.stack(warp, dim=-1)
@@ -135,7 +135,7 @@ class MetricHarness:
   def __call__(self, rgb_pred, rgb_gt, name_fn=lambda s: s):
     """Evaluate the error between a predicted rgb image and the true image."""
     psnr = float(mse_to_psnr(((rgb_pred - rgb_gt)**2).mean()))
-    ssim = float(self.ssim_fn(rgb_pred, rgb_gt))
+    ssim = float(self.ssim_fn(rgb_pred.numpy(), rgb_gt.numpy()))
 
     return {
         name_fn('psnr'): psnr,
