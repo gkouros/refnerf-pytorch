@@ -783,7 +783,7 @@ def render_image(render_fn: Callable[[torch.tensor, utils.Rays],
     for k, z in rendering.items():
         if not k.startswith('ray_'):
             # Reshape 2D buffers into original image shape.
-            rendering[k] = z.reshape((height, width) + z.shape[1:])
+            rendering[k] = z.reshape((height, width) + z.shape[1:]).cpu()
 
     # After all of the ray bundles have been concatenated together, extract a
     # new random bundle (deterministically) from the concatenation that is the
@@ -794,6 +794,6 @@ def render_image(render_fn: Callable[[torch.tensor, utils.Rays],
         ray_idx = torch.randperm(temp_num_rays)
         ray_idx = ray_idx[:config.vis_num_rays]
         for k in keys:
-            rendering[k] = [r[ray_idx] for r in rendering[k]]
+            rendering[k] = [r[ray_idx].cpu() for r in rendering[k]]
 
     return rendering
