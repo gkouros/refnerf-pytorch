@@ -141,7 +141,7 @@ def load_config(save_config=True):
   gin.parse_config_files_and_bindings(
       flags.FLAGS.gin_configs, flags.FLAGS.gin_bindings, skip_unknown=True)
   config = Config()
-  if save_config == 0:
+  if save_config:
     utils.makedirs(config.checkpoint_dir)
     with utils.open_file(config.checkpoint_dir + '/config.gin', 'w') as f:
       f.write(gin.config_str())
