@@ -750,34 +750,12 @@ def render_image(render_fn: Callable[[torch.tensor, utils.Rays],
             if k.startswith('ray_'):
                 chunk_rendering[k] = [r[k] for r in chunk_renderings]
 
-        def recursive_detach(v: [list, torch.Tensor]):
-            if isinstance(v, torch.Tensor):
-                return v.detach()
-            elif isinstance(v, list):
-                return [recursive_detach(vk) for vk in v]
-            else:
-                raise ValueError('Invalid input. v must be torch.Tensor or list')
-
-        chunk_rendering = {k: recursive_detach(v) for k, v in chunk_rendering.items()}
+        chunk_rendering = {k: utils.recursive_detach(v)
+                           for k, v in chunk_rendering.items()}
         chunks.append(chunk_rendering)
 
-
     # Concatenate all chunks
-    def merge_chunks(chunks):
-        merged_chunks = {}
-        for key in chunks[0]:
-            if isinstance(chunks[0][key], list):
-                merged_chunks[key] = [
-                    torch.cat([chunk[key][idx] for chunk in chunks])
-                    for idx in range(len(chunks[0][key]))
-                ]
-            elif isinstance(chunks[0][key], torch.Tensor):
-                merged_chunks[key] = torch.cat([tdict[key] for tdict in chunks])
-            else:
-                raise ValueError('Contents should be either list or tensor')
-        return merged_chunks
-
-    rendering = merge_chunks(chunks)
+    rendering = utils.merge_chunks(chunks)
 
     # reshape renderings 2D images
     for k, z in rendering.items():

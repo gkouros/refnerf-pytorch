@@ -227,9 +227,9 @@ def main(unused_argv):
                 # Reset everything we are tracking between summarizations.
                 reset_stats = True
 
-            # save a checkpoint on the first epoch and every Nth epoch
+            # Save a checkpoint on the first epoch and every Nth epoch.
             if step == 1 or step % config.checkpoint_every == 0:
-                # save checkpoint
+                # Save checkpoint.
                 state = dict(
                     step=step,
                     model=model.state_dict(),
@@ -246,18 +246,19 @@ def main(unused_argv):
                 test_case = next(test_dataset)
                 test_case.rays.to(device)
 
-                # render test image
+                # Render test image.
                 rendering = models.render_image(
                     functools.partial(render_eval_fn, train_frac),
                     test_case.rays, config)
 
-                # Log eval summaries
+                # Log eval summaries.
                 eval_time = time.time() - eval_start_time
                 num_rays = np.prod(np.array(test_case.rays.directions.shape[:-1]))
                 rays_per_sec = num_rays / eval_time
                 summary_writer.add_scalar('test_rays_per_sec', rays_per_sec, step)
                 logging.info(f'Eval {step}: {eval_time:0.3f}s., {rays_per_sec:0.0f} rays/sec')
 
+                # Compute metrics.
                 if config.compute_eval_metrics:
                     metric_start_time = time.time()
                     metric = metric_harness(rendering['rgb'], test_case.rgb)
@@ -268,6 +269,7 @@ def main(unused_argv):
                             summary_writer.add_scalar(
                                 'train_metrics/' + name, val, step)
 
+                # Log images to tensorboard.
                 vis_start_time = time.time()
                 vis_suite = vis.visualize_suite(rendering, test_case.rays)
                 logging.info(f'Visualized in {(time.time() - vis_start_time):0.3f}s')
@@ -282,7 +284,7 @@ def main(unused_argv):
                         'test_output_' + k, v, step,
                         dataformats='HWC' if len(v.shape) == 3 else 'HW')
 
-        # save last checkpoint if it wasn't already saved
+        # save last checkpoint if it wasn't already saved.
         if config.max_steps % config.checkpoint_every != 0:
             state = dict(
                 step=config.max_steps,
@@ -295,6 +297,5 @@ def main(unused_argv):
 
 if __name__ == '__main__':
     with gin.config_scope('train'):
-        # app.run(main)
         FLAGS(sys.argv)
         main(sys.argv)

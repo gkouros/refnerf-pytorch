@@ -186,3 +186,41 @@ def save_img_f32(depthmap, pth):
     with open_file(pth, 'wb') as f:
         Image.fromarray(np.nan_to_num(depthmap).astype(
             np.float32)).save(f, 'TIFF')
+
+
+def merge_chunks(chunks):
+    merged_chunks = {}
+    for key in chunks[0]:
+        if isinstance(chunks[0][key], list):
+            merged_chunks[key] = [
+                torch.cat([chunk[key][idx] for chunk in chunks])
+                for idx in range(len(chunks[0][key]))
+            ]
+        elif isinstance(chunks[0][key], torch.Tensor):
+            merged_chunks[key] = torch.cat([tdict[key] for tdict in chunks])
+        else:
+            raise ValueError('Contents should be either list or tensor')
+    return merged_chunks
+
+
+def recursive_detach(v: [list, torch.Tensor]):
+    if isinstance(v, torch.Tensor):
+        return v.detach()
+    elif isinstance(v, list):
+        return [recursive_detach(vk) for vk in v]
+    elif isinstance(v, dict):
+        return {k: recursive_detach(vk) for k, vk in v.items()}
+    else:
+        raise ValueError('Invalid input. v must be torch.Tensor or list')
+
+
+def recursive_device_switch(
+        v: [list, torch.Tensor], device: torch.device):
+    if isinstance(v, torch.Tensor):
+        return v.to(device)
+    elif isinstance(v, list):
+        return [recursive_device_switch(vk, device) for vk in v]
+    elif isinstance(v, dict):
+        return {k: recursive_device_switch(vk, device) for k, vk in v.items()}
+    else:
+        raise ValueError('Invalid input. v must be torch.Tensor or list')
