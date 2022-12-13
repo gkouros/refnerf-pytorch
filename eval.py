@@ -126,11 +126,11 @@ def main(unused_argv):
             # Cast to 64-bit to ensure high precision for color correction function.
             gt_rgb = torch.tensor(
                 batch.rgb, dtype=torch.float64, device=torch.device('cpu'))
-            rendering['rgb'] = torch.tensor(
-                rendering['rgb'], dtype=torch.float64)
+
+            # move renderings to cpu to allow for metrics calculations
+            rendering = {k: v.cpu().double() for k, v in rendering.items() if not k.startswith('ray_')}
 
             cc_start_time = time.time()
-            import pdb; pdb.set_trace()
             rendering['rgb_cc'] = cc_fun(rendering['rgb'], gt_rgb)
             print(f'Color corrected in {(time.time() - cc_start_time):0.3f}s')
 
