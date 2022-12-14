@@ -38,6 +38,7 @@ Model.ray_shape = 'cone'
 NerfMLP.net_depth = 8
 NerfMLP.net_width = 256
 NerfMLP.net_depth_viewdirs = 8
+NerfMLP.net_width_viewdirs = 256
 NerfMLP.basis_shape = 'octahedron'
 NerfMLP.basis_subdivisions = 1
 NerfMLP.disable_density_normals = False
