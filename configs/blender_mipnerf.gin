@@ -13,11 +13,12 @@ Config.orientation_coarse_loss_mult = 0.0
 Config.predicted_normal_coarse_loss_mult = 0
 Config.interlevel_loss_mult = 0
 Config.data_coarse_loss_mult = 0.1
+Config.data_loss_mult = 1.0
 Config.adam_beta1 = 0.9
 Config.adam_beta2 = 0.999
 Config.adam_eps = 1e-6
-Config.batch_size = 8192
-Config.render_chunk_size = 8192
+Config.batch_size = 16384
+Config.render_chunk_size = 16384
 Config.max_steps = 250000
 Config.dataset_debug_mode = False
 
