@@ -3,7 +3,7 @@ Config.batching = 'all_images'
 Config.llff_white_background = True
 Config.near = 0.2
 Config.far = 1e6
-Config.factor = 4
+Config.factor = 0
 Config.forward_facing = False
 Config.eval_render_interval = 5
 Config.compute_normal_metrics = False
@@ -33,7 +33,6 @@ Model.dilation_bias = 0.
 Model.single_jitter = False
 Model.resample_padding = 0.01
 Model.opaque_background = False
-Model.ray_shape = 'cone'
 
 NerfMLP.net_depth = 8
 NerfMLP.net_width = 256
