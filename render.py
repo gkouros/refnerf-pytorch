@@ -37,10 +37,6 @@ import numpy as np
 configs.define_common_flags()
 
 
-def idx_to_str(idx):
-    return str(idx).zfill(zpad)
-
-
 def create_videos(config, base_dir, out_dir, out_name, num_frames):
     """Creates videos out of the images saved to disk."""
     names = [n for n in config.checkpoint_dir.split('/') if n]
@@ -49,6 +45,10 @@ def create_videos(config, base_dir, out_dir, out_name, num_frames):
     video_prefix = f'{scene_name}_{exp_name}_{out_name}'
 
     zpad = max(3, len(str(num_frames - 1)))
+
+    def idx_to_str(idx):
+        return str(idx).zfill(zpad)
+
     utils.makedirs(base_dir)
 
     # Load one example frame to get image shape and depth range.
