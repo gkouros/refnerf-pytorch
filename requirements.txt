@@ -3,7 +3,8 @@ opencv-python
 Pillow
 tensorboard
 gin-config
-dm_pix
+#dm_pix
 rawpy
 mediapy
 flatdict
+scipy
