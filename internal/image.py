@@ -134,7 +134,6 @@ class MetricHarness:
 
     def __call__(self, rgb_pred, rgb_gt, name_fn=lambda s: s):
         """Evaluate the error between a predicted rgb image and the true image."""
-        rgb_gt = torch.tensor(rgb_gt)  # transform ndarray to tensor
         psnr = float(mse_to_psnr(((rgb_pred - rgb_gt) ** 2).mean()))
         ssim = float(self.compute_ssim(rgb_pred, rgb_gt))
 
@@ -166,11 +165,12 @@ class MetricHarness:
         img0 = img0.view(-1, width, height, num_channels).permute(0, 3, 1, 2)
         img1 = img1.view(-1, width, height, num_channels).permute(0, 3, 1, 2)
         batch_size = img0.shape[0]
+        dtype = img0.dtype
 
         # Construct a 1D Gaussian blur filter.
         hw = filter_size // 2
         shift = (2 * hw - filter_size + 1) / 2
-        f_i = ((torch.arange(filter_size, device=device) - hw + shift) / filter_sigma) ** 2
+        f_i = ((torch.arange(filter_size, device=device, dtype=dtype) - hw + shift) / filter_sigma) ** 2
         filt = torch.exp(-0.5 * f_i)
         filt /= torch.sum(filt)
 
