@@ -3,14 +3,25 @@
 NAME=$1
 EXP=$2
 CONFIG=$3
-DATA_DIR=/esat/topaz/gkouros/datasets/nerf/$1
+# format the arguments to gin bindings
+ARGS=${@:4} # all subsequent args are assumed args for the python script
+ARGS=($ARGS)  # split comma separated string
+ARGS_STR=''
+
+for (( i=0; i<${#ARGS[@]}; ++i ));
+do
+  ARGS_STR="$ARGS_STR --gin_bindings=${ARGS[$i]}"
+done
+echo ARGS="$ARGS_STR"
 
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate refnerf
 
-export PATH="/usr/local/cuda-11/bin:/usr/local/cuda/bin:$PATH"
-export LD_LIBRARY_PATH="/usr/local/cuda-11/lib64:/usr/local/cuda/lib64:$CONDA_PREFIX/lib/:$LD_LIBRARY_PATH"
+export PATH="/usr/local/cuda-12/bin:/usr/local/cuda/bin:$PATH"
+export LD_LIBRARY_PATH="/usr/local/cuda-12/lib64:/usr/local/cuda/lib64:$CONDA_PREFIX/lib/:$LD_LIBRARY_PATH"
+export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES/CUDA/}
 
+DATA_DIR=/esat/topaz/gkouros/datasets/nerf/$NAME
 DIR=/users/visics/gkouros/projects/nerf-repos/refnerf-pytorch/
 cd ${DIR}
 
@@ -40,6 +51,7 @@ python3 train.py \
   --gin_bindings="Config.batch_size = $BATCH_SIZE" \
   --gin_bindings="Config.render_chunk_size = $RENDER_CHUNK_SIZE" \
   --gin_bindings="NerfMLP.deg_view = $DEG_VIEW" \
+  $ARGS_STR \
   && \
   python3 render.py \
     --gin_configs="${DIR}/logs/$NAME/$EXP/config.gin" \

@@ -5,8 +5,9 @@ EXP=$2
 CONFIG=$3
 DATA_DIR=/esat/topaz/gkouros/datasets/nerf/$NAME
 
-export PATH="/usr/local/cuda-11/bin:/usr/local/cuda/bin:$PATH"
-export LD_LIBRARY_PATH="/usr/local/cuda-11/lib64:/usr/local/cuda/lib64:$LD_LIBRARY_PATH"
+export PATH="/usr/local/cuda-12/bin:/usr/local/cuda/bin:$PATH"
+export LD_LIBRARY_PATH="/usr/local/cuda-12/lib64:/usr/local/cuda/lib64:$LD_LIBRARY_PATH"
+export CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES/CUDA/}
 
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate refnerf
