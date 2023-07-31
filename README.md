@@ -273,7 +273,7 @@ If you use this software package or build on top of it, please use the following
       title={refnerf-pytorch: A port of Ref-NeRF from jax to pytorch},
       author={Georgios Kouros},
       year={2022},
-      url={https://github.com/google-research/refnerf-pytorch},
+      url={https://github.com/gkouros/refnerf-pytorch},
 }
 ```
 ## References
